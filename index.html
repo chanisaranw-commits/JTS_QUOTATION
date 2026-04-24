@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JWD Transport — ระบบคำนวณและเสนอราคาขนส่ง v7</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Prompt:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0c1f40;--navy2:#1a3560;--navy3:#243d72;
+  --gold:#c8962e;--gold2:#e9bb50;--goldb:rgba(200,150,46,.15);
+  --teal:#0b6e72;--teal2:#12a0a5;--tealb:rgba(11,110,114,.12);
+  --red:#b83232;--red2:#e74c3c;--redb:rgba(184,50,50,.1);
+  --green:#1a7040;--green2:#27ae60;--greenb:rgba(26,112,64,.1);
+  --orange:#c2560a;--amber:#e67e22;
+  --gray:#64748b;--gray2:#94a3b8;
+  --bg:#edf1f8;--surf:#fff;--surf2:#f8fafd;
+  --bdr:#d1d9ec;--bdr2:#b5c1d8;
+  --text:#1a2340;--muted:#64748b;--inp:#f4f7fc;
+  --sh:0 2px 12px rgba(12,31,64,.08);--sh2:0 8px 32px rgba(12,31,64,.16);
+  --r:10px;
+  --mgr-color:#7c3aed;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+
+/* ══ HEADER ══ */
+.hdr{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 65%,#1d4080 100%);
+  padding:14px 24px;display:flex;align-items:center;gap:14px;
+  box-shadow:0 4px 20px rgba(0,0,0,.3);position:sticky;top:0;z-index:300}
+.hdr-logo{width:40px;height:40px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  display:flex;align-items:center;justify-content:center;font-size:19px;
+  box-shadow:0 2px 8px rgba(200,150,46,.45)}
+.hdr-text h1{font-family:'Prompt',sans-serif;font-size:15px;font-weight:700;color:#fff}
+.hdr-text p{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.mode-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;transition:.2s;border:none;font-family:'Sarabun',sans-serif}
+.mode-pill.sales{background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)}
+.mode-pill.manager{background:var(--mgr-color);color:#fff;box-shadow:0 2px 8px rgba(124,58,237,.5)}
+.ver-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:3px 10px}
+
+/* ══ TAB BAR ══ */
+.tab-bar{background:var(--navy);display:flex;padding:0 20px;border-bottom:2px solid rgba(255,255,255,.06)}
+.tb{padding:10px 18px;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:600;
+  color:rgba(255,255,255,.45);background:none;border:none;cursor:pointer;
+  border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s;display:flex;align-items:center;gap:6px}
+.tb:hover{color:rgba(255,255,255,.78)}
+.tb.on{color:var(--gold2);border-bottom-color:var(--gold2)}
+.tb .tb-badge{background:var(--red);color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700}
+
+/* ══ PANELS ══ */
+.panel{display:none;padding:20px;max-width:1240px;margin:0 auto}
+.panel.on{display:block}
+
+/* ══ LAYOUT ══ */
+.layout{display:grid;grid-template-columns:1fr 370px;gap:18px;align-items:start}
+@media(max-width:960px){.layout{grid-template-columns:1fr}}
+
+/* ══ CARD ══ */
+.card{background:var(--surf);border-radius:12px;box-shadow:var(--sh);border:1px solid var(--bdr);overflow:hidden;margin-bottom:14px}
+.card:last-child{margin-bottom:0}
+.ch{padding:11px 16px;display:flex;align-items:center;gap:8px}
+.ch h2{font-size:12px;font-weight:700;color:#fff;flex:1;letter-spacing:.2px}
+.ch .ci{font-size:14px}
+.ch .cbadge{font-size:10px;background:rgba(255,255,255,.18);color:rgba(255,255,255,.88);padding:2px 9px;border-radius:8px;font-family:'IBM Plex Mono',monospace}
+.ch.navy{background:var(--navy)} .ch.teal{background:var(--teal)} .ch.mgr{background:var(--mgr-color)}
+.ch.orange{background:var(--orange)} .ch.green{background:var(--green)} .ch.amber{background:var(--amber)}
+.ch.red{background:var(--red)}
+.cb{padding:16px} .cb.sm{padding:12px 16px}
+
+/* ══ DIESEL BANNER ══ */
+.diesel-row{background:linear-gradient(135deg,#5c2d00,#8b4210);border-radius:11px;
+  padding:11px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.diesel-row label{font-size:12px;font-weight:700;color:rgba(255,255,255,.92)}
+.diesel-row .sub{font-size:9px;color:rgba(255,255,255,.48);margin-top:1px}
+.diesel-row input{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);
+  border-radius:7px;padding:6px 10px;color:#fff;font-family:'IBM Plex Mono',monospace;
+  font-size:15px;font-weight:700;width:100px;outline:none;text-align:center}
+.diesel-row input:focus{background:rgba(255,255,255,.28)}
+.diesel-row .unit{font-size:12px;color:rgba(255,255,255,.7);font-weight:600}
+
+/* FSC INDICATOR */
+.fsc-band{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
+.fsc-pill{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;border:1.5px solid transparent}
+.fsc-pill.green{background:var(--greenb);color:var(--green2);border-color:var(--green2)}
+.fsc-pill.yellow{background:rgba(230,126,34,.12);color:var(--amber);border-color:var(--amber)}
+.fsc-pill.red{background:var(--redb);color:var(--red2);border-color:var(--red2)}
+.fsc-label{font-size:10px;color:rgba(255,255,255,.55)}
+.fsc-surcharge{font-size:11px;font-weight:700;color:var(--gold2);font-family:'IBM Plex Mono',monospace}
+
+/* ══ FIELDS ══ */
+.fg{display:grid;gap:10px}
+.fg.c2{grid-template-columns:1fr 1fr}
+.fg.c3{grid-template-columns:1fr 1fr 1fr}
+.fg.c4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:640px){.fg.c2,.fg.c3,.fg.c4{grid-template-columns:1fr 1fr}}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-size:10px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:4px}
+.f label .req{color:var(--red);font-size:9px}
+.tag{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700}
+.tag.blue{color:var(--navy2);background:rgba(26,53,96,.1)}
+.tag.red{color:var(--red);background:var(--redb)}
+.tag.teal{color:var(--teal);background:var(--tealb)}
+.tag.mgr{color:var(--mgr-color);background:rgba(124,58,237,.1)}
+
+input[type=text],input[type=number],input[type=date],select,textarea{
+  background:var(--inp);border:1.5px solid var(--bdr);border-radius:7px;
+  padding:7px 10px;font-family:'Sarabun',sans-serif;font-size:13px;color:var(--text);
+  outline:none;width:100%;transition:.15s}
+textarea{resize:vertical;min-height:50px;line-height:1.5}
+input:focus,select:focus,textarea:focus{border-color:var(--navy2);background:#fff;box-shadow:0 0 0 3px rgba(26,53,96,.09)}
+input[readonly],input:disabled,select:disabled{background:#edf0f7;color:var(--muted);cursor:not-allowed;opacity:.7}
+select{cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.seclbl{font-size:10px;font-weight:800;color:var(--navy2);letter-spacing:.7px;
+  text-transform:uppercase;padding-bottom:8px;border-bottom:2px solid var(--gold);
+  margin-bottom:11px;display:flex;align-items:center;gap:6px}
+.seclbl::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0}
+.sec{margin-bottom:16px}.sec:last-child{margin-bottom:0}
+
+/* RADIO + CHECKBOX */
+.radio-set,.cb-set{display:flex;flex-wrap:wrap;gap:7px}
+.ri,.cbi{display:flex;align-items:center;gap:5px;background:var(--inp);border:1.5px solid var(--bdr);border-radius:7px;padding:6px 12px;cursor:pointer;transition:.15s;font-size:13px}
+.ri:hover,.cbi:hover{border-color:var(--navy2)}
+.ri input,.cbi input{accent-color:var(--navy2);cursor:pointer;width:13px;height:13px}
+.ri.on,.cbi.on{border-color:var(--navy2);background:rgba(26,53,96,.07);color:var(--navy2);font-weight:600}
+.ri label,.cbi label{cursor:pointer;font-size:13px}
+
+/* TOGGLE */
+.trow{display:flex;align-items:center;gap:9px;padding:4px 0}
+.tgl{position:relative;width:40px;height:22px;flex-shrink:0}
+.tgl input{opacity:0;width:0;height:0}
+.tsl{position:absolute;inset:0;background:#c3cad8;border-radius:11px;cursor:pointer;transition:.2s}
+.tsl::before{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tgl input:checked+.tsl{background:var(--teal)}
+.tgl input:checked+.tsl::before{transform:translateX(18px)}
+.tlbl{font-size:13px;font-weight:600}
+
+/* COND */
+.cblock{background:#f3f5fb;border:1.5px dashed var(--bdr2);border-radius:9px;padding:12px;margin-top:8px}
+.cblock.on{background:#f0f7f7;border-color:var(--teal2);border-style:solid}
+.hide{display:none!important}
+
+/* KM LEGS */
+.km-leg{background:var(--surf2);border:1px solid var(--bdr);border-radius:9px;padding:12px 14px;margin-bottom:9px}
+.km-leg:last-child{margin-bottom:0}
+.km-leg-title{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin-bottom:9px;display:flex;align-items:center;gap:6px;padding-bottom:7px;border-bottom:1px solid var(--bdr)}
+.leg-go{border-left:3px solid var(--green2)}.leg-go .km-leg-title{color:var(--green)}
+.leg-back{border-left:3px solid var(--red2)}.leg-back .km-leg-title{color:var(--red)}
+
+/* TOLL */
+.toll-g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tf{display:flex;flex-direction:column;gap:3px}
+.tf label{font-size:10px;color:var(--muted);font-weight:700;text-align:center}
+.tf input{text-align:center;padding:6px 4px;font-size:13px}
+
+/* ══ RESULT PANEL ══ */
+.rpanel{position:sticky;top:90px}
+.rmain{background:linear-gradient(165deg,var(--navy) 0%,#16305a 100%);border-radius:13px;overflow:hidden;box-shadow:var(--sh2)}
+.rhead{padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,.1)}
+.rhead-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.rhead h3{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.7px;text-transform:uppercase}
+.rjid{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--gold2)}
+.rdate{font-size:10px;color:rgba(255,255,255,.4);margin-top:1px}
+.rbody{padding:13px 16px}
+
+/* KM summary chips */
+.kmsum{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:12px}
+.kmc{background:rgba(255,255,255,.07);border-radius:7px;padding:7px;text-align:center}
+.kmc.hl{background:rgba(200,150,46,.2);border:1px solid rgba(200,150,46,.35)}
+.kl{font-size:8px;color:rgba(255,255,255,.48);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.kv{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#fff;font-weight:700;margin-top:2px}
+.kmc.hl .kl,.kmc.hl .kv{color:var(--gold2)}
+
+/* cost lines */
+.cline{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.cline:last-child{border:none}
+.clbl{font-size:11px;color:rgba(255,255,255,.58);display:flex;align-items:center;gap:5px}
+.cdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.cval{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#fff;font-weight:600}
+.cline.fsc-line .clbl{color:var(--gold2)}
+.cline.fsc-line .cval{color:var(--gold2)}
+
+/* FSC section in result */
+.fsc-result-block{background:rgba(200,150,46,.12);border:1px solid rgba(200,150,46,.25);border-radius:8px;padding:9px 12px;margin:8px 0}
+.fsc-result-title{font-size:9px;font-weight:700;color:var(--gold2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+
+/* Direct cost */
+.dblock{background:linear-gradient(135deg,rgba(200,150,46,.28),rgba(233,187,80,.12));border:1px solid rgba(200,150,46,.4);border-radius:9px;padding:12px;margin:12px 0 0;text-align:center}
+.dl{font-size:9px;font-weight:800;color:var(--gold2);letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px}
+.dv{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;color:var(--gold2)}
+.du{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px}
+
+/* MARGIN ALERT */
+.margin-alert{border-radius:8px;padding:8px 12px;margin:10px 0;font-size:11px;font-weight:600;text-align:center;display:none}
+.margin-alert.warn{background:rgba(230,126,34,.2);border:1px solid var(--amber);color:var(--amber)}
+.margin-alert.danger{background:var(--redb);border:1px solid var(--red2);color:var(--red2)}
+.margin-alert.ok{background:var(--greenb);border:1px solid var(--green2);color:var(--green2)}
+
+/* SP SECTION */
+.sp-section{margin-top:12px}
+.sp-input-wrap{background:rgba(255,255,255,.07);border-radius:9px;padding:10px 13px;margin-bottom:9px}
+.sp-input-wrap label{font-size:10px;font-weight:700;color:rgba(255,255,255,.58);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px}
+.sp-input-wrap input{background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.22);border-radius:6px;padding:7px 10px;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;outline:none;text-align:center;width:100%;transition:.15s}
+.sp-input-wrap input:focus{background:rgba(255,255,255,.24);border-color:var(--gold2)}
+.sp-meta{font-size:10px;color:rgba(255,255,255,.4);text-align:center;margin-top:4px;font-family:'IBM Plex Mono',monospace}
+
+.spblock{background:linear-gradient(135deg,var(--teal),var(--teal2));border-radius:9px;padding:12px;text-align:center}
+.spl{font-size:9px;font-weight:800;color:rgba(255,255,255,.8);letter-spacing:.7px;text-transform:uppercase;margin-bottom:4px}
+.spv{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:700;color:#fff}
+.spu{font-size:10px;color:rgba(255,255,255,.5);margin-top:2px}
+.sp-margin-pct{font-family:'IBM Plex Mono',monospace;font-size:13px;color:rgba(255,255,255,.75);margin-top:4px;font-weight:600}
+
+/* SCENARIO */
+.scenario-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:10px}
+.sc-chip{background:rgba(255,255,255,.06);border-radius:8px;padding:8px 6px;text-align:center;border:1px solid rgba(255,255,255,.1)}
+.sc-label{font-size:9px;color:rgba(255,255,255,.45);font-weight:700;margin-bottom:3px}
+.sc-val{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700}
+.sc-chip.up .sc-val{color:#ff8c69}
+.sc-chip.mid .sc-val{color:var(--gold2)}
+.sc-chip.dn .sc-val{color:#7ee8a2}
+
+/* VALIDITY */
+.validity-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border-radius:8px;padding:8px 12px;margin-top:8px}
+.validity-icon{font-size:14px}
+.validity-text{font-size:10px;color:rgba(255,255,255,.55);flex:1}
+.validity-date{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold2);font-weight:600}
+
+/* BTNS */
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.btn{display:flex;align-items:center;justify-content:center;gap:5px;padding:9px 12px;border-radius:8px;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;border:none}
+.btn-pdf{background:var(--teal);color:#fff} .btn-pdf:hover{background:var(--teal2)}
+.btn-clr{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.65)}
+.btn-clr:hover{background:rgba(255,255,255,.17);color:#fff}
+.btn-save{background:var(--navy3);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.15)}
+.btn-save:hover{background:var(--gold);color:var(--navy)}
+
+/* ══ MANAGER TAB ══ */
+.mgr-header{background:linear-gradient(135deg,var(--mgr-color),#5b21b6);border-radius:11px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.mgr-header .icon{font-size:26px}
+.mgr-header h2{font-family:'Prompt',sans-serif;font-size:15px;font-weight:700;color:#fff}
+.mgr-header p{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px}
+.mgr-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:720px){.mgr-grid{grid-template-columns:1fr}}
+.rate-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bdr)}
+.rate-row:last-child{border:none}
+.rate-name{font-size:13px;font-weight:600}
+.rate-desc{font-size:10px;color:var(--muted);margin-top:1px}
+.ri-wrap{display:flex;align-items:center;gap:7px}
+.ri-wrap input{width:85px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--navy2)}
+.runit{font-size:10px;color:var(--muted);min-width:52px}
+
+/* FSC BANDS TABLE */
+.fsc-table{width:100%;border-collapse:collapse}
+.fsc-table th{background:#f0f4fa;font-size:10px;font-weight:700;color:var(--muted);padding:8px 12px;text-align:left;letter-spacing:.3px;border-bottom:1px solid var(--bdr)}
+.fsc-table td{padding:8px 12px;font-size:13px;border-bottom:1px solid #f0f2f8}
+.fsc-table tr:last-child td{border:none}
+.fsc-table td input{width:80px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;padding:5px 8px}
+.band-color{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px}
+
+/* LOCK SETTINGS */
+.lock-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bdr)}
+.lock-row:last-child{border:none}
+.lock-label{font-size:13px;font-weight:600}
+.lock-desc{font-size:10px;color:var(--muted);margin-top:1px}
+.lock-toggle label.tgl{}
+
+/* HISTORY TAB */
+.hist-table{width:100%;border-collapse:collapse}
+.hist-table th{background:#f0f4fa;font-size:10px;font-weight:700;color:var(--muted);padding:8px 12px;text-align:left;border-bottom:1px solid var(--bdr)}
+.hist-table td{padding:9px 12px;font-size:12px;border-bottom:1px solid #f0f2f8;color:var(--text)}
+.hist-table tr:hover td{background:#f8faff}
+.hist-table td.num{font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:right}
+.hist-table td.mg-ok{color:var(--green2);font-weight:700}
+.hist-table td.mg-warn{color:var(--amber);font-weight:700}
+.hist-table td.mg-bad{color:var(--red2);font-weight:700}
+.hist-empty{text-align:center;padding:32px;color:var(--muted);font-size:13px}
+.hist-actions{display:flex;gap:8px;margin-bottom:14px}
+.btn-sm{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:'Sarabun',sans-serif;transition:.15s}
+.btn-sm.red{background:var(--redb);color:var(--red2);border:1px solid var(--red2)}
+.btn-sm.teal{background:var(--tealb);color:var(--teal);border:1px solid var(--teal)}
+
+/* TOLL REF TAB */
+.toll-hero{background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:11px;padding:14px 18px;margin-bottom:16px}
+.toll-hero h3{font-family:'Prompt',sans-serif;font-size:13px;font-weight:700;color:#fff;margin-bottom:5px}
+.toll-hero p{font-size:11px;color:rgba(255,255,255,.58);line-height:1.7}
+.toll-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.toll-tag{font-size:10px;background:rgba(255,255,255,.13);color:rgba(255,255,255,.82);padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.18)}
+.toll-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){.toll-grid{grid-template-columns:1fr}}
+.tcard{background:var(--surf);border-radius:11px;box-shadow:var(--sh);border:1px solid var(--bdr);overflow:hidden}
+.tcard-h{padding:10px 14px;display:flex;align-items:center;gap:8px}
+.tcard-h h3{font-size:12px;font-weight:700;color:#fff;flex:1}
+.tcard-h .org{font-size:9px;background:rgba(255,255,255,.2);color:#fff;padding:2px 8px;border-radius:5px;font-weight:700}
+table.t{width:100%;border-collapse:collapse}
+table.t th{background:#f0f4fa;font-size:10px;font-weight:700;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--bdr)}
+table.t td{padding:7px 10px;font-size:12px;border-bottom:1px solid #f0f2f8}
+table.t tr:last-child td{border:none}
+table.t tr:hover td{background:#f8faff}
+table.t td.n{font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:right}
+table.t td.hl{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--navy2);text-align:right;background:rgba(26,53,96,.04)}
+.t-note{font-size:10px;color:var(--muted);padding:7px 10px;background:#f8faff;border-top:1px solid var(--bdr);line-height:1.6}
+.toll-foot{background:var(--surf);border-radius:11px;padding:13px 16px;border:1px solid var(--bdr);font-size:11px;color:var(--muted);line-height:1.8;margin-top:14px}
+
+/* ══ PASSWORD MODAL ══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:999;display:flex;align-items:center;justify-content:center}
+.modal-overlay.hide{display:none}
+.modal{background:var(--surf);border-radius:16px;padding:28px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h3{font-family:'Prompt',sans-serif;font-size:16px;font-weight:700;color:var(--mgr-color);margin-bottom:6px}
+.modal p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.6}
+.modal input{background:var(--inp);border:2px solid var(--bdr);border-radius:8px;padding:10px 14px;font-size:14px;width:100%;outline:none;font-family:'IBM Plex Mono',monospace;letter-spacing:.2em;text-align:center}
+.modal input:focus{border-color:var(--mgr-color)}
+.modal-btns{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+.modal-btn{padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:'Sarabun',sans-serif;transition:.15s}
+.modal-btn.confirm{background:var(--mgr-color);color:#fff}
+.modal-btn.confirm:hover{background:#6d28d9}
+.modal-btn.cancel{background:var(--inp);color:var(--muted);border:1px solid var(--bdr)}
+.modal-err{color:var(--red2);font-size:11px;text-align:center;margin-top:8px;display:none}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;border-radius:10px;padding:12px 18px;font-size:13px;font-weight:600;box-shadow:var(--sh2);z-index:999;transform:translateY(80px);opacity:0;transition:.3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-left:4px solid var(--green2)}
+.toast.warn{border-left:4px solid var(--amber)}
+.toast.err{border-left:4px solid var(--red2)}
+
+/* divider */
+hr.div{border:none;border-top:1px solid var(--bdr);margin:14px 0}
+
+footer{text-align:center;padding:14px;font-size:10px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-logo">🚢</div>
+  <div class="hdr-text">
+    <h1>JWD Transport — ระบบคำนวณและเสนอราคาขนส่ง</h1>
+    <p>Container Transport Pricing System · Trailer Truck Operations</p>
+  </div>
+  <div class="hdr-right">
+    <div class="mode-pill sales" id="mode-indicator">
+      <span id="mode-icon">👤</span> <span id="mode-label">Sales View</span>
+    </div>
+    <span class="ver-badge">v7.6</span>
+  </div>
+</header>
+
+<!-- TAB BAR -->
+<nav class="tab-bar">
+  <button class="tb on" onclick="switchTab('calc')" id="tab-calc">🧮 คำนวณราคา (Sales)</button>
+  <button class="tb" onclick="switchTab('manager')" id="tab-manager">⚙️ Parameters</button>
+  <button class="tb" onclick="switchTab('history')" id="tab-history">📋 ประวัติใบเสนอราคา <span class="tb-badge" id="hist-count">0</span></button>
+  <button class="tb" onclick="switchTab('zones')" id="tab-zones">🗺️ ตาราง Zone</button>
+  <button class="tb" onclick="switchTab('tolls')" id="tab-tolls">🛣️ ตารางค่าทางด่วน</button>
+</nav>
+
+<!-- ═══════════════════════════════════
+  TAB 1: CALC
+═══════════════════════════════════ -->
+<div class="panel on" id="panel-calc">
+<div class="layout">
+
+<!-- FORM COL -->
+<div>
+
+<!-- Diesel + FSC -->
+<div class="diesel-row">
+  <div>
+    <label>⛽ ราคาน้ำมันดีเซล B7 <span style="font-size:10px;color:rgba(255,255,255,.5);font-weight:400">(อ้างอิง PTT / EPPO)</span></label>
+    <div class="sub">ราคา ณ วันคิดราคา · ปรับได้โดยตรง · พารามิเตอร์อื่น → แท็บ Parameters</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <input type="number" id="r_diesel" value="29.74" step="0.01" min="0" oninput="recalc()">
+    <span class="unit">฿/ลิตร</span>
+  </div>
+  <div style="margin-left:auto;text-align:right">
+    <div style="font-size:10px;color:rgba(255,255,255,.5)">ปริมาณน้ำมันที่ใช้</div>
+    <div style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:700;color:var(--gold2)" id="diesel-lit-summary">— ลิตร</div>
+  </div>
+</div>
+
+<!-- ข้อมูลลูกค้า -->
+<div class="card">
+  <div class="ch navy"><span class="ci">👤</span><h2>ข้อมูลลูกค้า &amp; งาน</h2></div>
+  <div class="cb">
+    <div class="fg c4" style="margin-bottom:11px">
+      <div class="f"><label>รหัสงาน (Job ID)<span class="req">*</span> <button onclick="genJobID()" style="padding:1px 7px;background:var(--navy2);color:#fff;border:none;border-radius:4px;font-size:9px;cursor:pointer;font-family:Sarabun,sans-serif;font-weight:600">Auto</button></label><input type="text" id="jobid" placeholder="001/2026"></div>
+      <div class="f"><label>วันที่คิดราคา<span class="req">*</span></label><input type="date" id="job_date"></div>
+      <div class="f"><label>วันหมดอายุราคา</label><input type="date" id="job_exp"></div>
+      <div class="f"><label>ผู้เสนอราคา <span class="req">*</span></label><input type="text" id="proposer" placeholder="ชื่อ Sales / ผู้จัดทำ"></div>
+    </div>
+    <div class="fg c2" style="margin-bottom:11px">
+      <div class="f"><label>ชื่อลูกค้า<span class="req">*</span></label><input type="text" id="cust_name" placeholder="ชื่อบริษัท / ลูกค้า"></div>
+      <div class="f"><label>ชื่อบริษัทออก Invoice</label><input type="text" id="inv_name" placeholder="ชื่อบริษัทใน Invoice"></div>
+    </div>
+    <div class="fg c2" style="margin-bottom:11px">
+      <div class="f"><label>ที่อยู่ลูกค้า</label><textarea id="cust_addr" placeholder="ที่อยู่" style="min-height:44px"></textarea></div>
+      <div class="f"><label>ที่อยู่ Invoice</label><textarea id="inv_addr" placeholder="ที่อยู่สำหรับออก Invoice" style="min-height:44px"></textarea></div>
+    </div>
+    <div class="fg c3" style="margin-bottom:11px">
+      <div class="f"><label>ประเภทสินค้า</label><input type="text" id="cargo_type" placeholder="เช่น อาหารแช่แข็ง"></div>
+      <div class="f"><label>น้ำหนัก (ตัน)</label><input type="number" id="cargo_wt" value="0" min="0" step="0.1"></div>
+      <div class="f"><label>สถานที่บรรจุ / ลงสินค้า</label><input type="text" id="cargo_place" placeholder="เช่น นิคมฯ อมตะนคร"></div>
+    </div>
+    <div class="fg c2">
+      <div class="f">
+        <label>Zone พื้นที่ <span class="tag teal">ตามตาราง JWD</span></label>
+        <select id="zone_select" onchange="onZoneChange()">
+          <option value="">— เลือก Zone —</option>
+          <optgroup label="EEC & Eastern (รอบลานจอด JWD)">
+            <option value="Zone 1 (Core)">Zone 1 (Core) — แหลมฉบัง, เครือสหพัฒน์, ปิ่นทอง 1-3</option>
+            <option value="Zone 2 (Inner)">Zone 2 (Inner) — บ่อวิน, ปลวกแดง, อมตะซิตี้ (ระยอง), WHA</option>
+            <option value="Zone 3 (Outer)">Zone 3 (Outer) — มาบตาพุด, ระยอง, อมตะซิตี้ (ชลบุรี), พานทอง</option>
+          </optgroup>
+          <optgroup label="Greater Bangkok (กทม. และปริมณฑล)">
+            <option value="BKK - East">BKK - East — สมุทรปราการ (บางพลี, บางปู), ฉะเชิงเทรา</option>
+            <option value="BKK - North">BKK - North — ปทุมธานี (นวนคร), อยุธยา (โรจนะ, ไฮเทค)</option>
+            <option value="BKK - West">BKK - West — สมุทรสาคร (มหาชัย), นครปฐม</option>
+          </optgroup>
+          <option value="OTHER">อื่นๆ (ระบุอำเภอ/จังหวัด)</option>
+        </select>
+      </div>
+      <div class="f" id="zone_other_wrap" style="display:none">
+        <label>ระบุอำเภอ / จังหวัด <span class="tag red">นอก Zone</span></label>
+        <input type="text" id="zone_other" placeholder="เช่น อ.บ้านโพธิ์ จ.ฉะเชิงเทรา">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ประเภทงาน -->
+<div class="card">
+  <div class="ch navy"><span class="ci">📦</span><h2>ประเภทงาน &amp; ตู้</h2></div>
+  <div class="cb">
+    <div class="sec">
+      <div class="seclbl">ประเภทงาน</div>
+      <div class="radio-set" id="rs_impexp">
+        <div class="ri on" onclick="selR('impexp','export',this)"><input type="radio" name="impexp" value="export" checked><label>📤 Export — ส่งออก</label></div>
+        <div class="ri" onclick="selR('impexp','import',this)"><input type="radio" name="impexp" value="import"><label>📥 Import — นำเข้า</label></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="seclbl">ประเภทตู้</div>
+      <div class="radio-set" id="rs_ctype">
+        <div class="ri on" onclick="selR('ctype','dry',this)"><input type="radio" name="ctype" value="dry" checked><label>📦 Dry</label></div>
+        <div class="ri" onclick="selR('ctype','reefer',this)"><input type="radio" name="ctype" value="reefer"><label>❄️ Reefer</label></div>
+        <div class="ri" onclick="selR('ctype','dg',this)"><input type="radio" name="ctype" value="dg"><label>☢️ DG</label></div>
+      </div>
+      <div class="cblock hide" id="block_gen">
+        <div class="seclbl" style="margin-bottom:9px">❄️ Generator — Reefer</div>
+        <div class="trow" style="margin-bottom:8px">
+          <label class="tgl"><input type="checkbox" id="chk_precool" onchange="onPrecool()"><span class="tsl"></span></label>
+          <span class="tlbl">มีการ Precool ก่อนบรรจุ</span>
+        </div>
+        <div class="fg c2">
+          <div class="f hide" id="fld_pre"><label>ชม. Generator (Precool)</label><input type="number" id="gen_pre" value="0" min="0" step="0.5" oninput="recalc()"></div>
+          <div class="f"><label>ชม. Generator (หลังบรรจุ)</label><input type="number" id="gen_after" value="0" min="0" step="0.5" oninput="recalc()"></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="seclbl">ขนาดตู้</div>
+      <div class="cb-set" id="cbset_size">
+        <label class="cbi on"><input type="checkbox" value="40" checked onchange="styleCheck(this)"> 40'</label>
+        <label class="cbi"><input type="checkbox" value="20" onchange="styleCheck(this)"> 20'</label>
+        <label class="cbi"><input type="checkbox" value="45" onchange="styleCheck(this)"> 45'</label>
+        <label class="cbi"><input type="checkbox" value="40hc" onchange="styleCheck(this)"> 40'HC</label>
+        <label class="cbi"><input type="checkbox" value="fl" onchange="styleCheck(this)"> Flat Rack</label>
+        <label class="cbi"><input type="checkbox" value="ot" onchange="styleCheck(this)"> Open Top</label>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="seclbl">ประเภทหาง (Chassis)</div>
+      <div class="radio-set" id="rs_chassis">
+        <div class="ri on" onclick="selR('chassis','2axle',this)"><input type="radio" name="chassis" value="2axle" checked><label>2 เพลา</label></div>
+        <div class="ri" onclick="selR('chassis','3axle',this)"><input type="radio" name="chassis" value="3axle"><label>3 เพลา</label></div>
+        <div class="ri" onclick="selR('chassis','lowbed',this)"><input type="radio" name="chassis" value="lowbed"><label>Lowbed</label></div>
+      </div>
+    </div>
+    <div class="sec" id="sec_mode">
+      <div class="seclbl">รูปแบบงาน</div>
+      <div class="radio-set" id="rs_mode">
+        <div class="ri on" onclick="selR('mode','wait',this)"><input type="radio" name="mode" value="wait" checked><label>🔄 รอบรรจุ</label></div>
+        <div class="ri" onclick="selR('mode','stay',this)"><input type="radio" name="mode" value="stay"><label>🅿️ ค้างหาง</label></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ระยะทาง -->
+<div class="card">
+  <div class="ch navy"><span class="ci">📍</span><h2>ระยะทาง</h2><span class="cbadge" id="km_badge">0 กม.</span></div>
+  <div class="cb" id="km_section"></div>
+</div>
+
+<!-- ค่าทางด่วน -->
+<div class="card">
+  <div class="ch navy"><span class="ci">🛣️</span><h2>ค่าทางด่วน / ค่าผ่านทาง</h2><span class="cbadge" id="toll_badge">฿0</span></div>
+  <div class="cb sm">
+    <div class="toll-g4">
+      <div class="tf"><label>ด่านที่ 1</label><input type="number" id="toll1" value="0" min="0" oninput="recalc()"></div>
+      <div class="tf"><label>ด่านที่ 2</label><input type="number" id="toll2" value="0" min="0" oninput="recalc()"></div>
+      <div class="tf"><label>ด่านที่ 3</label><input type="number" id="toll3" value="0" min="0" oninput="recalc()"></div>
+      <div class="tf"><label>ด่านที่ 4</label><input type="number" id="toll4" value="0" min="0" oninput="recalc()"></div>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--muted)">💡 ดูอัตราอ้างอิงรถหัวลาก →  แท็บ 🛣️ ตารางค่าทางด่วน</div>
+  </div>
+</div>
+
+<!-- หมายเหตุ -->
+<div class="card">
+  <div class="ch" style="background:#475569"><span class="ci">📝</span><h2>หมายเหตุ / Notes</h2></div>
+  <div class="cb">
+    <div class="f"><label>หมายเหตุ (แสดงใน PDF และ CSV)</label>
+      <textarea id="remarks" placeholder="เช่น ราคานี้ไม่รวมค่า THC / รอยืนยันระยะทางอีกครั้ง" style="min-height:55px"></textarea></div>
+  </div>
+</div>
+
+<!-- ค่าใช้จ่ายเพิ่มเติม -->
+<div class="card">
+  <div class="ch orange"><span class="ci">➕</span><h2>ค่าใช้จ่ายเพิ่มเติมอื่นๆ</h2></div>
+  <div class="cb">
+    <div id="extra_rows"></div>
+    <button onclick="addExtra()" style="margin-top:8px;width:100%;padding:7px;background:var(--inp);border:1.5px dashed var(--bdr2);border-radius:7px;font-family:Sarabun,sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:.15s" onmouseover="this.style.borderColor='var(--navy2)';this.style.color='var(--navy2)'" onmouseout="this.style.borderColor='var(--bdr2)';this.style.color='var(--muted)'">+ เพิ่มรายการค่าใช้จ่าย</button>
+  </div>
+</div>
+
+</div><!-- /form col -->
+
+<!-- ═══ RESULT PANEL ═══ -->
+<div class="rpanel">
+  <div class="rmain">
+    <div class="rhead">
+      <div class="rhead-top">
+        <h3>ผลการคำนวณ</h3>
+        <span style="font-size:10px;color:rgba(255,255,255,.35);font-family:IBM Plex Mono,monospace" id="r_quote_no">—</span>
+      </div>
+      <div class="rjid" id="d_jobid">กรุณากรอก Job ID</div>
+      <div class="rdate" id="d_cust_name">—</div>
+    </div>
+    <div class="rbody">
+
+      <!-- KM SUMMARY -->
+      <div class="kmsum">
+        <div class="kmc"><div class="kl">ตู้เปล่า</div><div class="kv" id="d_km_e">0 กม.</div></div>
+        <div class="kmc"><div class="kl">ตู้หนัก</div><div class="kv" id="d_km_l">0 กม.</div></div>
+        <div class="kmc hl"><div class="kl">รวม</div><div class="kv" id="d_km_t">0 กม.</div></div>
+      </div>
+
+      <!-- COST LINES -->
+      <div class="cline"><div class="clbl"><div class="cdot" style="background:#e9bb50"></div>น้ำมันรถหัวลาก</div><div class="cval" id="d_fuel">฿0</div></div>
+      <!-- Truck fuel liters breakdown -->
+      <div style="background:rgba(255,255,255,.05);border-radius:7px;padding:7px 10px;margin:4px 0 4px 0">
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">⛽ ปริมาณน้ำมันที่ใช้</div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+          <span style="font-size:11px;color:rgba(255,255,255,.6)">รถหัวลาก (ตู้เปล่า)</span>
+          <span style="font-family:IBM Plex Mono,monospace;font-size:11px;color:#e9bb50" id="d_lit_e">— ลิตร</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+          <span style="font-size:11px;color:rgba(255,255,255,.6)">รถหัวลาก (ตู้หนัก)</span>
+          <span style="font-family:IBM Plex Mono,monospace;font-size:11px;color:#e9bb50" id="d_lit_l">— ลิตร</span>
+        </div>
+        <div class="cline" id="line_gen" style="border-bottom:1px solid rgba(255,255,255,.06);padding:3px 0;margin:0">
+          <span style="font-size:11px;color:rgba(255,255,255,.6)">Generator (Reefer)</span>
+          <span style="font-family:IBM Plex Mono,monospace;font-size:11px;color:#12a0a5" id="d_lit_gen">— ลิตร</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;margin-top:2px">
+          <span style="font-size:11px;font-weight:700;color:var(--gold2)">รวมน้ำมันทั้งหมด</span>
+          <span style="font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:700;color:var(--gold2)" id="d_lit_total">— ลิตร</span>
+        </div>
+      </div>
+      <!-- Generator cost line (hidden in liters box above, keep for recalc) -->
+      <div class="cline" id="line_gen_lit" style="display:none"><div class="clbl"></div><div class="cval" id="d_gen">฿0</div></div>
+      <div class="cline fsc-line hide" id="line_fsc"><div class="clbl"><div class="cdot" style="background:#e9bb50"></div>Fuel Surcharge (FSC)</div><div class="cval" id="d_fsc">฿0</div></div>
+      <div class="cline"><div class="clbl"><div class="cdot" style="background:#e74c3c"></div>ค่าทางด่วน</div><div class="cval" id="d_toll">฿0</div></div>
+      <div class="cline"><div class="clbl"><div class="cdot" style="background:#9b59b6"></div>ค่าแรงคนขับ (7%)</div><div class="cval" id="d_drv">฿0</div></div>
+      <div class="cline"><div class="clbl"><div class="cdot" style="background:#3498db"></div>M&amp;R</div><div class="cval" id="d_mr">฿0</div></div>
+      <div class="cline"><div class="clbl"><div class="cdot" style="background:#27ae60"></div>ยาง</div><div class="cval" id="d_tire">฿0</div></div>
+      <div class="cline" id="line_extra"><div class="clbl"><div class="cdot" style="background:#e67e22"></div>ค่าใช้จ่ายอื่นๆ</div><div class="cval" id="d_extra">฿0</div></div>
+
+      <!-- DIRECT COST -->
+      <div class="dblock">
+        <div class="dl">⚡ Direct Cost รวม</div>
+        <div class="dv" id="d_dc">0</div>
+        <div class="du">บาท / เที่ยว</div>
+      </div>
+
+      <!-- MARGIN ALERT -->
+      <div class="margin-alert" id="margin-alert"></div>
+
+      <!-- SELLING PRICE INPUT -->
+      <div class="sp-section">
+        <div class="sp-input-wrap">
+          <label>💰 ราคาขาย (฿/เที่ยว)</label>
+          <input type="number" id="sp_price" placeholder="กรอกราคาขาย..." min="0" oninput="recalc()">
+          <div class="sp-meta" id="d_margin_disp">กรอกราคาขายเพื่อคำนวณ Margin%</div>
+          <div class="sp-meta" id="d_margin_pct" style="color:var(--gold2);font-weight:700;margin-top:3px"></div>
+        </div>
+        <input type="hidden" id="driver_wage">
+        <input type="hidden" id="d_sp">
+      </div>
+
+      <!-- SCENARIO (v7.2 style: 3 chips ±2฿) -->
+      <div style="margin-top:10px;font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px">📊 Scenario น้ำมัน</div>
+      <div class="scenario-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">
+        <div class="sc-chip up"><div class="sc-label">น้ำมัน +2฿/ลิตร</div><div class="sc-val" id="sc_up2">—</div></div>
+        <div class="sc-chip mid"><div class="sc-label">ปัจจุบัน (฿<span id="sc_diesel_now">—</span>)</div><div class="sc-val" id="sc_now">—</div></div>
+        <div class="sc-chip dn"><div class="sc-label">น้ำมัน -2฿/ลิตร</div><div class="sc-val" id="sc_dn2">—</div></div>
+      </div>
+
+
+
+      <!-- VALIDITY -->
+      <div class="validity-row">
+        <span class="validity-icon">📅</span>
+        <span class="validity-text">ราคานี้มีผลถึง</span>
+        <span class="validity-date" id="d_exp_date">—</span>
+      </div>
+
+      <!-- BUTTONS -->
+      <div class="btn-grid">
+        <button class="btn btn-pdf" onclick="exportPDF()">📄 Export PDF</button>
+        <button class="btn btn-save" onclick="saveQuote()">💾 บันทึกใบเสนอ</button>
+      </div>
+      <div style="margin-top:7px">
+        <button class="btn btn-clr" onclick="resetForm()" style="width:100%">🗑️ ล้างข้อมูล / เริ่มใหม่</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</div><!-- /layout -->
+</div><!-- /panel-calc -->
+
+<!-- ═══════════════════════════════════
+  TAB 2: MANAGER SETTINGS
+═══════════════════════════════════ -->
+<div class="panel" id="panel-manager">
+  <div class="mgr-header">
+    <span class="icon">⚙️</span>
+    <div>
+      <h2>Parameters — ค่าคงที่และ FSC</h2>
+      <p id="mgr-status-text">⚙️ Parameters — แก้ไขค่าคงที่และ FSC ได้ทันที ไม่ต้องใช้รหัสผ่าน · การเปลี่ยนแปลงมีผลกับแท็บ "คำนวณราคา" ทันที</p>
+    </div>
+  </div>
+
+  <!-- RATES -->
+  <div class="mgr-grid">
+    <div class="card">
+      <div class="ch navy"><span class="ci">⛽</span><h2>อัตราสิ้นเปลืองน้ำมัน — รถหัวลาก</h2></div>
+      <div class="cb">
+        <div class="rate-row">
+          <div><div class="rate-name">ตู้เปล่า</div><div class="rate-desc">วิ่งโดยไม่บรรทุก / ตู้เปล่า</div></div>
+          <div class="ri-wrap"><input type="number" id="s_empty" value="4" step="0.1" min="0.1" oninput="recalc()" class="mgr-field"><span class="runit">กม./ลิตร</span></div>
+        </div>
+        <div class="rate-row">
+          <div><div class="rate-name">ตู้หนัก / บรรจุ</div><div class="rate-desc">วิ่งขณะลากตู้เต็มน้ำหนัก</div></div>
+          <div class="ri-wrap"><input type="number" id="s_loaded" value="2.5" step="0.1" min="0.1" oninput="recalc()" class="mgr-field"><span class="runit">กม./ลิตร</span></div>
+        </div>
+        <div class="rate-row">
+          <div><div class="rate-name">Generator (Reefer)</div><div class="rate-desc">Thermo King / Carrier มาตรฐาน</div></div>
+          <div class="ri-wrap"><input type="number" id="s_gen" value="5" step="0.1" min="0.1" oninput="recalc()" class="mgr-field"><span class="runit">ลิตร/ชม.</span></div>
+        </div>
+        <div class="rate-row">
+          <div><div class="rate-name">M&amp;R</div><div class="rate-desc">ซ่อมบำรุง, น้ำมันเครื่อง, ชิ้นส่วน</div></div>
+          <div class="ri-wrap"><input type="number" id="s_mr" value="1.5" step="0.1" min="0" oninput="recalc()" class="mgr-field"><span class="runit">฿/กม.</span></div>
+        </div>
+        <div class="rate-row">
+          <div><div class="rate-name">ยางล้อ</div><div class="rate-desc">เฉลี่ยราคายาง + อายุการใช้งาน</div></div>
+          <div class="ri-wrap"><input type="number" id="s_tire" value="1.2" step="0.1" min="0" oninput="recalc()" class="mgr-field"><span class="runit">฿/กม.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ch mgr"><span class="ci">⚠️</span><h2>Minimum Margin &amp; Policy</h2></div>
+      <div class="cb">
+        <div class="rate-row">
+          <div><div class="rate-name">Minimum Margin % (เตือนสีเหลือง)</div><div class="rate-desc">ต่ำกว่านี้ Sales จะเห็น Warning</div></div>
+          <div class="ri-wrap"><input type="number" id="s_min_margin_warn" value="10" step="1" min="0" max="100" class="mgr-field"><span class="runit">%</span></div>
+        </div>
+        <div class="rate-row">
+          <div><div class="rate-name">Minimum Margin % (ห้ามเสนอ)</div><div class="rate-desc">ต่ำกว่านี้ Alert แดง — ควร approve</div></div>
+          <div class="ri-wrap"><input type="number" id="s_min_margin_stop" value="5" step="1" min="0" max="100" class="mgr-field"><span class="runit">%</span></div>
+        </div>
+        <div class="rate-row">
+          <div><div class="rate-name">อายุใบเสนอราคา (วัน)</div><div class="rate-desc">นับจากวันที่คิดราคา</div></div>
+          <div class="ri-wrap"><input type="number" id="s_quote_days" value="7" step="1" min="1" class="mgr-field"><span class="runit">วัน</span></div>
+        </div>
+        <div class="rate-row">
+          <div><div class="rate-name">ค่าแรงคนขับ (% ของราคาขาย)</div><div class="rate-desc">คำนวณอัตโนมัติจากราคาขาย</div></div>
+          <div class="ri-wrap"><input type="number" id="s_driver_pct" value="7" step="0.5" min="0" max="30" class="mgr-field"><span class="runit">%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FSC DUAL METHOD -->
+    <div class="card" style="grid-column:span 2">
+      <div class="ch amber"><span class="ci">⛽</span><h2>Fuel Surcharge (FSC) — 2 วิธีคำนวณ</h2></div>
+      <div class="cb">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">วิธีคำนวณ:</span>
+          <div class="radio-set" id="rs_fsc_method" style="gap:8px">
+            <div class="ri on" onclick="selFscMethod('band',this)"><input type="radio" name="fsc_method" value="band" checked><label>📊 Band Fixed (฿/เที่ยว)</label></div>
+            <div class="ri" onclick="selFscMethod('pct',this)"><input type="radio" name="fsc_method" value="pct"><label>📈 % จาก Base Price</label></div>
+            <div class="ri" onclick="selFscMethod('both',this)"><input type="radio" name="fsc_method" value="both"><label>🔒 ทั้งสองอย่าง (มากกว่า)</label></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">📊 วิธี 1 — Band Fixed (฿/เที่ยว) แบ่ง ±2 และ ±4 จาก Base</div>
+            <div style="margin-bottom:9px;font-size:12px">
+              Base Price: <input type="number" id="fsc_band_base" value="29.74" step="0.01" class="mgr-field" style="width:80px;font-size:12px;padding:4px 8px;text-align:center;display:inline-block;margin:0 4px"> ฿/ลิตร
+            </div>
+            <table class="fsc-table" id="fsc_band_table">
+              <thead><tr>
+                <th>Band</th>
+                <th>ราคาน้ำมัน B7 (฿/ลิตร)</th>
+                <th>FSC (฿/เที่ยว)</th>
+                <th>สถานะ</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td style="color:#3498db;font-weight:700">Band −4</td>
+                  <td style="font-size:11px;font-family:IBM Plex Mono,monospace" id="fsc_range_m4">—</td>
+                  <td><input type="number" id="fsc_band_m4" value="-200" step="50" class="mgr-field"></td>
+                  <td style="color:#3498db;font-weight:700">🔵 ลดราคา</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--green2);font-weight:700">Band −2</td>
+                  <td style="font-size:11px;font-family:IBM Plex Mono,monospace" id="fsc_range_m2">—</td>
+                  <td><input type="number" id="fsc_band_m2" value="-100" step="50" class="mgr-field"></td>
+                  <td style="color:var(--green2);font-weight:700">🟢 ลดเล็กน้อย</td>
+                </tr>
+                <tr style="background:#f8fafd">
+                  <td style="color:var(--gold);font-weight:700">⭐ Base</td>
+                  <td style="font-size:12px;font-family:IBM Plex Mono,monospace;font-weight:700;color:var(--gold)" id="fsc_range_base">—</td>
+                  <td><input type="number" id="fsc_band_base_rate" value="0" step="50" class="mgr-field"></td>
+                  <td style="color:var(--gold);font-weight:700">⭐ ปกติ</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--amber);font-weight:700">Band +2</td>
+                  <td style="font-size:11px;font-family:IBM Plex Mono,monospace" id="fsc_range_p2">—</td>
+                  <td><input type="number" id="fsc_band_p2" value="100" step="50" class="mgr-field"></td>
+                  <td style="color:var(--amber);font-weight:700">🟡 เพิ่มเล็กน้อย</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--red2);font-weight:700">Band +4</td>
+                  <td style="font-size:11px;font-family:IBM Plex Mono,monospace" id="fsc_range_p4">—</td>
+                  <td><input type="number" id="fsc_band_p4" value="200" step="50" class="mgr-field"></td>
+                  <td style="color:var(--red2);font-weight:700">🔴 สูงมาก</td>
+                </tr>
+              </tbody>
+            </table>
+            <div id="fsc_band_live" style="margin-top:8px;background:#f8fafd;border:1px solid var(--bdr);border-radius:7px;padding:8px 11px;font-size:11px;color:var(--muted)">— กรอกราคาน้ำมันแล้วคอลัมน์ "ราคาน้ำมัน" จะอัปเดตอัตโนมัติ —</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px">📈 วิธี 2 — % อัตโนมัติจาก Base Price</div>
+            <div style="background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px">
+              <div class="rate-row" style="padding:0;border:none">
+                <div><div class="rate-name">Base Price น้ำมัน</div><div class="rate-desc">ราคาตอนทำสัญญา</div></div>
+                <div class="ri-wrap"><input type="number" id="fsc_base_price" value="29.74" step="0.01" class="mgr-field"><span class="runit">฿/ลิตร</span></div>
+              </div>
+              <div class="rate-row" style="padding:0;border:none">
+                <div><div class="rate-name">อัตรา FSC (%/฿1 เกิน Base)</div><div class="rate-desc">แต่ละ 1 บาทที่เกิน คิด X%</div></div>
+                <div class="ri-wrap"><input type="number" id="fsc_pct_rate" value="3" step="0.5" class="mgr-field"><span class="runit">%/฿1</span></div>
+              </div>
+              <div id="fsc_pct_preview" style="background:var(--tealb);border:1px solid rgba(11,110,114,.2);border-radius:7px;padding:9px;font-size:11px;color:var(--teal)">—</div>
+            </div>
+          </div>
+        </div>
+        <div id="fsc_comparison" style="margin-top:12px;background:#f8fafd;border:1px solid var(--bdr);border-radius:8px;padding:10px 13px;display:none">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">⚡ เปรียบเทียบ FSC Live</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div style="text-align:center;padding:8px;background:#fff;border-radius:7px;border:1px solid var(--bdr)">
+              <div style="font-size:9px;color:var(--muted);font-weight:700">Band Fixed</div>
+              <div style="font-family:IBM Plex Mono,monospace;font-size:14px;font-weight:700;color:var(--amber)" id="fsc_cmp_band">—</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:#fff;border-radius:7px;border:1px solid var(--bdr)">
+              <div style="font-size:9px;color:var(--muted);font-weight:700">Auto %</div>
+              <div style="font-family:IBM Plex Mono,monospace;font-size:14px;font-weight:700;color:var(--teal)" id="fsc_cmp_pct">—</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:rgba(200,150,46,.1);border-radius:7px;border:1px solid rgba(200,150,46,.3)">
+              <div style="font-size:9px;color:var(--gold);font-weight:700">ใช้จริง</div>
+              <div style="font-family:IBM Plex Mono,monospace;font-size:14px;font-weight:700;color:var(--gold)" id="fsc_cmp_used">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
+    <button onclick="saveParams()" style="padding:10px 24px;background:var(--navy2);color:#fff;border:none;border-radius:9px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 3px 10px rgba(26,53,96,.25);transition:.15s" onmouseover="this.style.background='var(--teal)'" onmouseout="this.style.background='var(--navy2)'">
+      💾 Save Parameters
+    </button>
+    <button onclick="resetParams()" style="padding:10px 18px;background:#f0f4fa;color:var(--muted);border:1px solid var(--bdr);border-radius:9px;font-family:Sarabun,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s" onmouseover="this.style.background='#e5ebf5'" onmouseout="this.style.background='#f0f4fa'">
+      ↺ Reset Default
+    </button>
+    <span id="params-save-status" style="font-size:11px;color:var(--green2);font-weight:600"></span>
+  </div>
+  <div style="background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(124,58,237,.04));border:1px solid rgba(124,58,237,.2);border-radius:10px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--mgr-color);line-height:1.7">
+    ⚡ <strong>กด "Save Parameters" เพื่อบันทึกค่าลง Browser (localStorage)</strong> — จะโหลดอัตโนมัติทุกครั้งที่เปิดโปรแกรม<br>
+    💡 ค่า Default อ้างอิงมาตรฐาน JWD Transport Operations
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+  TAB 3: HISTORY
+═══════════════════════════════════ -->
+<div class="panel" id="panel-history">
+  <div class="hist-actions">
+    <button class="btn-sm teal" onclick="exportHistCSV()">📊 Export CSV</button>
+    <button class="btn-sm red" onclick="clearHistory()">🗑️ ล้างประวัติ</button>
+  </div>
+  <div class="card">
+    <div class="ch navy"><span class="ci">📋</span><h2>ประวัติใบเสนอราคา</h2><span class="cbadge" id="hist-total">0 รายการ</span></div>
+    <div style="overflow-x:auto">
+      <table class="hist-table" id="hist-table">
+        <thead>
+          <tr>
+            <th>Job ID</th><th>วันที่</th><th>ลูกค้า</th><th>ผู้เสนอ</th><th>Zone</th><th>ประเภท</th>
+            <th>ระยะทาง</th><th>น้ำมัน(ลิตร)</th><th>หมายเหตุ</th>
+            <th>Direct Cost (฿)</th><th>ราคาขาย (฿)</th><th>Margin%</th>
+            <th>ราคาน้ำมัน</th><th>วันหมดอายุ</th><th>ลบ</th>
+          </tr>
+        </thead>
+        <tbody id="hist-body">
+          <tr><td colspan="14" class="hist-empty">ยังไม่มีประวัติใบเสนอราคา<br>กด "💾 บันทึกใบเสนอ" ในแท็บคำนวณราคา</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+  TAB 4: TOLL REFERENCE
+═══════════════════════════════════ -->
+<div class="panel" id="panel-zones">
+  <div style="background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:11px;padding:14px 18px;margin-bottom:16px">
+    <h3 style="font-family:Prompt,sans-serif;font-size:13px;font-weight:700;color:#fff;margin-bottom:4px">🗺️ ตาราง Zone พื้นที่บริการ — JWD Transport</h3>
+    <p style="font-size:11px;color:rgba(255,255,255,.58);line-height:1.6">Zone พื้นที่และกลยุทธ์การตั้งราคา · อ้างอิงจากเอกสาร JWD Zone Strategy</p>
+  </div>
+  <div class="card">
+    <div class="ch navy"><span class="ci">🏭</span><h2>EEC &amp; Eastern — รอบลานจอด JWD (Laem Chabang)</h2></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#f0f4fa"><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;border-bottom:1px solid var(--bdr)">Zone</th><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--bdr)">พื้นที่ / นิคมฯ</th><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--bdr)">กลุ่มลูกค้าเป้าหมาย</th><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--bdr)">กลยุทธ์ตั้งราคา</th></tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f0f2f8"><td style="padding:10px 12px"><strong style="color:var(--teal)">Zone 1 (Core)</strong></td><td style="padding:10px 12px;font-size:12px">แหลมฉบัง, เครือสหพัฒน์, ปิ่นทอง 1-3</td><td style="padding:10px 12px;font-size:12px">ผู้นำเข้า-ส่งออก, ลานตู้</td><td style="padding:10px 12px"><span style="background:rgba(11,110,114,.1);color:var(--teal);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">Fixed Rate — เหมาเที่ยวเดียว (เน้นรอบวิ่งถี่)</span></td></tr>
+        <tr style="border-bottom:1px solid #f0f2f8"><td style="padding:10px 12px"><strong style="color:var(--green2)">Zone 2 (Inner)</strong></td><td style="padding:10px 12px;font-size:12px">บ่อวิน, ปลวกแดง, อมตะซิตี้ (ระยอง), WHA</td><td style="padding:10px 12px;font-size:12px">ยานยนต์, ชิ้นส่วนอิเล็กทรอนิกส์</td><td style="padding:10px 12px"><span style="background:rgba(39,174,96,.1);color:var(--green2);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">Distance-Based — ตามระยะ + ค่าเสียเวลา</span></td></tr>
+        <tr><td style="padding:10px 12px"><strong style="color:var(--red2)">Zone 3 (Outer)</strong></td><td style="padding:10px 12px;font-size:12px">มาบตาพุด, ระยอง, อมตะซิตี้ (ชลบุรี), พานทอง</td><td style="padding:10px 12px;font-size:12px">ปิโตรเคมี, อุตสาหกรรมหนัก</td><td style="padding:10px 12px"><span style="background:rgba(184,50,50,.08);color:var(--red2);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">Premium Rate — บวกค่าความเสี่ยง/สินค้าเฉพาะ</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="ch navy"><span class="ci">🏙️</span><h2>Greater Bangkok — กทม. และปริมณฑล</h2></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#f0f4fa"><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);text-align:left;border-bottom:1px solid var(--bdr)">Zone</th><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--bdr)">พื้นที่ครอบคลุม</th><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--bdr)">กลุ่มลูกค้า</th><th style="padding:9px 12px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--bdr)">กลยุทธ์ตั้งราคา</th></tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f0f2f8"><td style="padding:10px 12px"><strong style="color:var(--navy2)">BKK - East</strong></td><td style="padding:10px 12px;font-size:12px">สมุทรปราการ (บางพลี, บางปู), ฉะเชิงเทรา</td><td style="padding:10px 12px;font-size:12px">Air Freight, ศูนย์กระจายสินค้า (DC)</td><td style="padding:10px 12px"><span style="background:rgba(26,53,96,.08);color:var(--navy2);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">Standard Long-Haul — ทางไกล + ทางด่วน</span></td></tr>
+        <tr style="border-bottom:1px solid #f0f2f8"><td style="padding:10px 12px"><strong style="color:var(--purple)">BKK - North</strong></td><td style="padding:10px 12px;font-size:12px">ปทุมธานี (นวนคร), อยุธยา (โรจนะ, ไฮเทค)</td><td style="padding:10px 12px;font-size:12px">FMCG, อาหารและเครื่องดื่ม</td><td style="padding:10px 12px"><span style="background:rgba(108,52,131,.08);color:var(--purple);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">Daily Contract — เหมาวัน หรือมีส่วนลดขากลับ</span></td></tr>
+        <tr><td style="padding:10px 12px"><strong style="color:var(--teal)">BKK - West</strong></td><td style="padding:10px 12px;font-size:12px">สมุทรสาคร (มหาชัย), นครปฐม</td><td style="padding:10px 12px;font-size:12px">อาหารแช่แข็ง, ผลไม้ส่งออก</td><td style="padding:10px 12px"><span style="background:rgba(11,110,114,.08);color:var(--teal);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">Specialized Rate — บวกเพิ่มตามประเภทรถ (ห้องเย็น)</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div style="background:var(--surf);border-radius:11px;padding:12px 16px;border:1px solid var(--bdr);font-size:11px;color:var(--muted);line-height:1.8;margin-top:14px">
+    📌 Zone สามารถเลือกได้ในช่อง "ข้อมูลสินค้า" แท็บคำนวณราคา · ถ้าลูกค้าไม่อยู่ใน Zone ให้เลือก "อื่นๆ" และระบุอำเภอ/จังหวัด
+  </div>
+</div>
+
+<div class="panel" id="panel-tolls">
+  <div class="toll-hero">
+    <h3>🛣️ อัตราค่าผ่านทาง — รถหัวลาก / รถบรรทุก &gt;10 ล้อ (อัปเดต 2567–2568)</h3>
+    <p>EXAT: รถบรรทุกมากกว่า 10 ล้อ | มอเตอร์เวย์ หมายเลข 7: รถบรรทุกมากกว่า 6 ล้อ</p>
+    <div class="toll-tags">
+      <span class="toll-tag">EXAT · การทางพิเศษแห่งประเทศไทย</span>
+      <span class="toll-tag">MW · ทางหลวงพิเศษระหว่างเมือง</span>
+      <span class="toll-tag">DTW · ทางยกระดับดอนเมือง</span>
+    </div>
+  </div>
+  <div class="toll-grid">
+    <div class="tcard"><div class="tcard-h" style="background:#1a3560"><h3>ทางพิเศษเฉลิมมหานคร (ขั้นที่ 1)</h3><span class="org">EXAT</span></div>
+      <table class="t"><tr><th>เข้าจาก</th><th>ออกที่</th><th>&gt;10 ล้อ (฿)</th></tr>
+      <tr><td>ดินแดง / เพชรบุรี</td><td>บางนา / ลาดกระบัง</td><td class="hl">110</td></tr>
+      <tr><td>อาจณรงค์ 1 (ลดราคา)*</td><td>บางนา</td><td class="hl">85</td></tr>
+      <tr><td>บางจาก (ขาเข้า)</td><td>ปากน้ำ</td><td class="hl">30</td></tr></table>
+      <div class="t-note">* ส่วนลดถาวรตามสัญญา RTA</div></div>
+    <div class="tcard"><div class="tcard-h" style="background:#1a3560"><h3>ทางพิเศษศรีรัช (ขั้นที่ 2)</h3><span class="org">EXAT</span></div>
+      <table class="t"><tr><th>เข้าจาก</th><th>ออกที่</th><th>&gt;10 ล้อ (฿)</th></tr>
+      <tr><td>รัชดาภิเษก / บางซื่อ</td><td>พหลโยธิน / หลักสี่</td><td class="hl">110</td></tr>
+      <tr><td>แจ้งวัฒนะ</td><td>ลาดพร้าว / รามอินทรา</td><td class="hl">110</td></tr></table>
+      <div class="t-note">อัตราคงที่ทุกด่าน | Easy Pass ราคาเดียวกัน</div></div>
+    <div class="tcard"><div class="tcard-h" style="background:#1a3560"><h3>ทางพิเศษฉลองรัช (รามอินทรา–อาจณรงค์)</h3><span class="org">EXAT</span></div>
+      <table class="t"><tr><th>เข้าจาก</th><th>ออกที่</th><th>&gt;10 ล้อ (฿)</th></tr>
+      <tr><td>รามอินทรา / ลาดพร้าว</td><td>อาจณรงค์ / บางนา</td><td class="hl">90</td></tr>
+      <tr><td>อาจณรงค์ (ขาเข้า)</td><td>รามอินทรา</td><td class="hl">90</td></tr></table>
+      <div class="t-note">อัตราใหม่ มีผล 1 มี.ค. 2567</div></div>
+    <div class="tcard"><div class="tcard-h" style="background:#1a3560"><h3>ทางพิเศษบูรพาวิถี (บางนา–ชลบุรี)</h3><span class="org">EXAT</span></div>
+      <table class="t"><tr><th>เข้าจาก</th><th>ออกที่</th><th>&gt;10 ล้อ (฿)</th></tr>
+      <tr><td>บางนา</td><td>ชลบุรี (บางวัว)</td><td class="hl">245</td></tr>
+      <tr><td>บางนา</td><td>พระสมุทรเจดีย์</td><td class="hl">165</td></tr></table>
+      <div class="t-note">อัตราใหม่ มีผล 1 มี.ค. 2567</div></div>
+    <div class="tcard"><div class="tcard-h" style="background:#7b3f00"><h3>ทางยกระดับดอนเมือง (ดินแดง–อนุสรณ์สถาน)</h3><span class="org">DTW</span></div>
+      <table class="t"><tr><th>เข้าจาก</th><th>ออกที่</th><th>&gt;4 ล้อ (฿)</th></tr>
+      <tr><td>ดินแดง / สุทธิสาร</td><td>ดอนเมือง / หลักสี่</td><td class="hl">120</td></tr>
+      <tr><td>หลักสี่ / แจ้งวัฒนะ</td><td>ดินแดง / รัชดาภิเษก</td><td class="hl">120</td></tr></table>
+      <div class="t-note">อัตราคงที่ทุกด่าน 120 บาท มีผล 22 ธ.ค. 2567–21 ธ.ค. 2572</div></div>
+    <div class="tcard"><div class="tcard-h" style="background:#2d5016"><h3>ทางพิเศษกาญจนาภิเษก (M-Flow)</h3><span class="org">EXAT</span></div>
+      <table class="t"><tr><th>เข้าจาก</th><th>ออกที่</th><th>&gt;10 ล้อ (฿)</th></tr>
+      <tr><td>ลาดกระบัง / บางนา</td><td>บางพลี / สมุทรปราการ</td><td class="hl">60–100</td></tr>
+      <tr><td>พระราม 2 / สุขสวัสดิ์</td><td>บางพลี</td><td class="hl">55–85</td></tr></table>
+      <div class="t-note">ระบบ M-Flow ไม่มีไม้กั้น | ต้องสมัคร M-Pass</div></div>
+  </div>
+
+  <!-- MW7 Full Table -->
+  <div class="tcard" style="margin-top:14px">
+    <div class="tcard-h" style="background:#0b6e72"><h3>มอเตอร์เวย์ หมายเลข 7 (กรุงเทพฯ–ชลบุรี–พัทยา–มาบตาพุด) — รถบรรทุก &gt;6 ล้อ</h3><span class="org">MW · กฎกระทรวง 2564</span></div>
+    <div style="display:grid;grid-template-columns:1fr 220px">
+      <table class="t">
+        <tr><th>เส้นทาง (จากด่านลาดกระบัง)</th><th style="text-align:right">ขาไป (฿)</th><th style="text-align:right">ขากลับ (฿)</th><th style="text-align:right">ไป-กลับ (฿)</th></tr>
+        <tr><td>→ ด่านพนัสนิคม (ชลบุรี)</td><td class="n">110</td><td class="n">110</td><td class="hl">220</td></tr>
+        <tr><td>→ ด่านบ้านบึง</td><td class="n">150</td><td class="n">150</td><td class="hl">300</td></tr>
+        <tr><td>→ <strong>ด่านหนองขาม (แหลมฉบัง)</strong></td><td class="n">200</td><td class="n">200</td><td class="hl" style="color:var(--teal);font-size:13px;font-weight:800">400</td></tr>
+        <tr><td>→ ด่านพัทยา</td><td class="n">245</td><td class="n">245</td><td class="hl">490</td></tr>
+        <tr><td>→ ด่านมาบตาพุด (ระยอง)</td><td class="n">305</td><td class="n">305</td><td class="hl">610</td></tr>
+      </table>
+      <div style="background:#f0f7f7;padding:14px;border-left:1px solid var(--bdr);display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">อัตราพื้นฐาน</div>
+        <div style="background:#fff;border:1px solid var(--bdr);border-radius:7px;padding:9px;text-align:center"><div style="font-size:10px;color:var(--muted)">ค่าเริ่มต้น</div><div style="font-family:IBM Plex Mono,monospace;font-size:16px;font-weight:700;color:var(--navy2)">20 ฿</div></div>
+        <div style="background:#fff;border:1px solid var(--bdr);border-radius:7px;padding:9px;text-align:center"><div style="font-size:10px;color:var(--muted)">อัตราต่อกม.</div><div style="font-family:IBM Plex Mono,monospace;font-size:16px;font-weight:700;color:var(--navy2)">~2.3 ฿</div></div>
+        <div style="background:var(--tealb);border:1px solid rgba(11,110,114,.25);border-radius:7px;padding:9px;text-align:center"><div style="font-size:10px;color:var(--teal)">สูงสุดตลอดสาย</div><div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:800;color:var(--teal)">305 ฿</div></div>
+      </div>
+    </div>
+    <div class="t-note">อ้างอิง: กฎกระทรวงปี พ.ศ. 2564 และประกาศล่าสุดจากกรมทางหลวง | ชำระได้ M-Pass, Easy Pass, M-Flow และเงินสด</div>
+  </div>
+
+  <div class="toll-foot">
+    <strong style="color:var(--navy2)">📌 หมายเหตุ</strong><br>
+    • อัตราสำหรับ <strong>รถหัวลากพ่วง / รถบรรทุกมากกว่า 10 ล้อ</strong> (มอเตอร์เวย์ 7: >6 ล้อ)<br>
+    • ตรวจสอบเพิ่มเติม: <a href="https://www.exat.co.th" target="_blank" style="color:var(--teal)">exat.co.th</a> และ <a href="https://www.motorway.go.th" target="_blank" style="color:var(--teal)">motorway.go.th</a>
+  </div>
+</div>
+
+<footer>JWD Transport Co., Ltd. · Container Transport Pricing System v7.0 · EXAT / Motorway / DTW 2567–2568</footer>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let isManager = false;
+let quoteHistory = JSON.parse(localStorage.getItem('jwd_history')||'[]');
+let lastDC = 0, lastSP = 0, lastFSC = 0, lastKmTotal = 0;
+
+// ── HELPERS ──
+const v   = id => { const e=document.getElementById(id); return e?(parseFloat(e.value)||0):0; };
+const str = id => { const e=document.getElementById(id); return e?e.value.trim():''; };
+const chk = id => { const e=document.getElementById(id); return e?e.checked:false; };
+const fmt = n  => n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtShort = n => {
+  if(n>=1000) return (n/1000).toFixed(1)+'K';
+  return fmt(n);
+};
+
+// ── TAB ──
+function switchTab(name){
+  document.querySelectorAll('.tb').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('tab-'+name).classList.add('on');
+  document.getElementById('panel-'+name).classList.add('on');
+  if(name==='history') renderHistory();
+  if(name==='manager'){ setManagerMode(true); }
+  else if(name==='calc'){ setManagerMode(false); }
+}
+function setManagerMode(on){
+  isManager = on;
+  document.querySelectorAll('.mgr-field').forEach(f=>{ f.disabled=!on; });
+  const ind = document.getElementById('mode-indicator');
+  const icon = document.getElementById('mode-icon');
+  const lbl  = document.getElementById('mode-label');
+  if(on){
+    ind.className='mode-pill manager';
+    icon.textContent='⚙️'; lbl.textContent='Manager Mode';
+  } else {
+    ind.className='mode-pill sales';
+    icon.textContent='👤'; lbl.textContent='Sales View';
+  }
+}
+
+// ── RADIO / CHECKBOX ──
+function selR(grp, val, el){
+  document.querySelectorAll(`#rs_${grp} .ri`).forEach(r=>r.classList.remove('on'));
+  if(el) el.classList.add('on');
+  const inp = document.querySelector(`input[name="${grp}"][value="${val}"]`);
+  if(inp) inp.checked = true;
+  onFormChange();
+}
+function styleCheck(cb){ cb.closest('.cbi').classList.toggle('on', cb.checked); }
+
+// ── MANAGER MODE: handled by switchTab/setManagerMode ──
+
+// ── FSC LOGIC ──
+function calcFSC(diesel, km_total){
+  const method=document.querySelector('input[name="fsc_method"]:checked')?.value||'band';
+
+  // METHOD A: Band Fixed ฿/เที่ยว based on diff from band_base
+  const bandBase=v('fsc_band_base')||v('r_diesel')||29.74;
+  const diff=diesel-bandBase;
+  let band='Base', fscAmtBand=0, pillClass='green', pillText='Base ⭐';
+  if(diff<=-4){band='Band -4';fscAmtBand=v('fsc_band_m4');pillClass='blue';pillText='Band -4 🔵';}
+  else if(diff<=-2){band='Band -2';fscAmtBand=v('fsc_band_m2');pillClass='green';pillText='Band -2 🟢';}
+  else if(diff<2){band='Base';fscAmtBand=v('fsc_band_base_rate');pillClass='green';pillText='Base ⭐';}
+  else if(diff<4){band='Band +2';fscAmtBand=v('fsc_band_p2');pillClass='yellow';pillText='Band +2 🟡';}
+  else{band='Band +4';fscAmtBand=v('fsc_band_p4');pillClass='red';pillText='Band +4 🔴';}
+  const fscRateBand=km_total>0?fscAmtBand/km_total:0;
+
+  // Live band indicator + range column update
+  const livEl=document.getElementById('fsc_band_live');
+  if(livEl){const cols={'Band -4':'#3498db','Band -2':'var(--green2)','Base':'var(--gold)','Band +2':'var(--amber)','Band +4':'var(--red2)'};const c=cols[band]||'var(--muted)';livEl.innerHTML=`ราคาน้ำมัน <b>฿${diesel}</b> | Base <b>฿${bandBase}</b> | ส่วนต่าง <b>${diff>=0?'+':''}${diff.toFixed(2)}฿</b> → <span style="font-weight:800;color:${c}">${band} | FSC <b>${fscAmtBand>=0?'+':''}฿${fscAmtBand}/เที่ยว</b></span>`;}
+  // Update range columns in FSC table
+  const updateRange=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
+  const b2=bandBase.toFixed(2), bM4=(bandBase-4).toFixed(2), bM2=(bandBase-2).toFixed(2), bP2=(bandBase+2).toFixed(2), bP4=(bandBase+4).toFixed(2);
+  updateRange('fsc_range_m4', `≤ ${bM2}`);
+  updateRange('fsc_range_m2', `${bM2} — ${b2}`);
+  updateRange('fsc_range_base', `${b2}`);
+  updateRange('fsc_range_p2', `${b2} — ${bP2}`);
+  updateRange('fsc_range_p4', `> ${bP2}`);
+
+  // METHOD B: % from base price
+  const basePrice=v('fsc_base_price');
+  const fscPctRate=v('fsc_pct_rate');
+  let fscAmtPct=0,pctDiff=0;
+  if(diesel>basePrice&&basePrice>0){
+    pctDiff=diesel-basePrice;
+    const rE=v('s_empty'),rL=v('s_loaded');
+    const ff=rE>0&&rL>0?((rE+rL)/(2*rE*rL)):0.3;
+    fscAmtPct=pctDiff*(fscPctRate/100)*km_total/ff;
+  }
+  const pPrev=document.getElementById('fsc_pct_preview');
+  if(pPrev){pPrev.innerHTML=diesel>basePrice&&basePrice>0?`น้ำมัน <b>฿${diesel}</b> เกิน Base <b>฿${basePrice}</b> = <b>+฿${pctDiff.toFixed(2)}</b> → FSC <b>฿${fscAmtPct.toFixed(0)}</b>`:`น้ำมัน ฿${diesel} ≤ Base ฿${basePrice} → <span style="color:var(--green2);font-weight:700">ไม่มี FSC ✓</span>`;}
+
+  let fscAmount=0,fscRate=0;
+  if(method==='band'){fscAmount=fscAmtBand;fscRate=fscRateBand;}
+  else if(method==='pct'){fscAmount=fscAmtPct;fscRate=km_total>0?fscAmtPct/km_total:0;}
+  else{fscAmount=fscAmtBand>=0?Math.max(fscAmtBand,fscAmtPct):Math.min(fscAmtBand,fscAmtPct);fscRate=km_total>0?fscAmount/km_total:0;}
+
+  const fscDisplay=`${band} (${fscAmount>=0?'+':''}฿${fscAmount.toFixed(0)})`;
+  return{band,fscRate,fscAmount,fscAmtBand,fscAmtPct,pctDiff,pillClass,pillText:fscDisplay,pillTextShort:pillText};
+}
+
+
+// ── FORM CHANGE ──
+function onFormChange(){
+  const imp = document.querySelector('input[name="impexp"]:checked')?.value||'export';
+  const ctype = document.querySelector('input[name="ctype"]:checked')?.value||'dry';
+  const mode = document.querySelector('input[name="mode"]:checked')?.value||'wait';
+  const isR = ctype==='reefer';
+  const bg = document.getElementById('block_gen');
+  bg.classList.toggle('hide',!isR);
+  bg.classList.toggle('on',isR);
+  document.getElementById('sec_mode').style.display = imp==='export' ? '' : 'none';
+  renderKm(imp, mode);
+  setExpiry();
+  recalc();
+}
+function onPrecool(){
+  document.getElementById('fld_pre').classList.toggle('hide', !chk('chk_precool'));
+  recalc();
+}
+
+// ── SET EXPIRY ──
+function setExpiry(){
+  const dateVal = document.getElementById('job_date').value;
+  const days = v('s_quote_days')||7;
+  if(dateVal){
+    const d = new Date(dateVal);
+    d.setDate(d.getDate()+days);
+    document.getElementById('job_exp').value = d.toISOString().split('T')[0];
+  }
+  const expVal = document.getElementById('job_exp').value;
+  document.getElementById('d_exp_date').textContent = expVal
+    ? new Date(expVal).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})
+    : '—';
+}
+
+// ── KM RENDER ──
+function renderKm(imp, mode){
+  const sec = document.getElementById('km_section');
+  let h='';
+  if(imp==='export'){
+    if(mode==='wait'){
+      h=`<div class="km-leg leg-go"><div class="km-leg-title">→ ขาไป</div><div class="fg c2" style="gap:9px">
+        <div class="f"><label>JTS → ลานรับตู้เปล่า <span class="tag blue">ตู้เปล่า</span></label><input type="number" id="km_jts_yard" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+        <div class="f"><label>ลานรับตู้ → โรงงานบรรจุ <span class="tag blue">ตู้เปล่า</span></label><input type="number" id="km_yard_factory" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+      </div></div>
+      <div class="km-leg leg-back"><div class="km-leg-title">← ขากลับ</div>
+        <div class="f"><label>โรงงาน → ท่าเรือ (คืนตู้) <span class="tag red">ตู้หนัก</span></label><input type="number" id="km_factory_port" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+      </div>`;
+    } else {
+      h=`<div class="km-leg leg-go"><div class="km-leg-title">→ ขาไป (รอบ 1)</div><div class="fg c2" style="gap:9px">
+        <div class="f"><label>JTS → ลานรับตู้เปล่า <span class="tag blue">ตู้เปล่า</span></label><input type="number" id="km_jts_yard" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+        <div class="f"><label>ลานรับตู้ → โรงงาน <span class="tag blue">ตู้เปล่า</span></label><input type="number" id="km_yard_factory" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+      </div></div>
+      <div class="km-leg leg-back"><div class="km-leg-title">← ขากลับ (รอบ 1)</div>
+        <div class="f"><label>โรงงาน → ลานจอด JTS <span class="tag blue">ตู้เปล่า</span></label><input type="number" id="km_factory_jts" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+      </div>
+      <div class="km-leg leg-go"><div class="km-leg-title">→ ขาไป (รอบ 2)</div>
+        <div class="f"><label>JTS → โรงงาน (= เดิมข้อ 3) <span class="tag blue">ตู้เปล่า</span></label><input type="number" id="km_jts_factory2" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+      </div>
+      <div class="km-leg leg-back"><div class="km-leg-title">← ขากลับ (รอบ 2)</div>
+        <div class="f"><label>โรงงาน → ท่าเรือ (คืนตู้) <span class="tag red">ตู้หนัก</span></label><input type="number" id="km_factory_port" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+      </div>`;
+    }
+  } else {
+    h=`<div class="km-leg leg-go"><div class="km-leg-title">→ ขาไป</div>
+      <div class="f"><label>JTS → ท่าเรือ (รับตู้เต็ม) <span class="tag red">ตู้หนัก</span></label><input type="number" id="km_jts_port" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+    </div>
+    <div class="km-leg leg-back"><div class="km-leg-title">← ขากลับ</div><div class="fg c2" style="gap:9px">
+      <div class="f"><label>ท่าเรือ → โรงงานลงสินค้า <span class="tag red">ตู้หนัก</span></label><input type="number" id="km_port_factory" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+      <div class="f"><label>โรงงาน → ท่าเรือ (คืนตู้เปล่า) <span class="tag blue">ตู้เปล่า</span></label><input type="number" id="km_factory_port" value="0" min="0" oninput="recalc()" placeholder="กม."></div>
+    </div></div>`;
+  }
+  sec.innerHTML = h;
+}
+
+// ── JOB ID AUTO ──
+function genJobID(){
+  const yr=new Date().getFullYear();
+  const ex=quoteHistory.map(r=>r.id).filter(id=>id&&id.endsWith('/'+yr));
+  let mx=0; ex.forEach(id=>{const n=parseInt(id);if(!isNaN(n)&&n>mx)mx=n;});
+  document.getElementById('jobid').value=String(mx+1).padStart(3,'0')+'/'+yr; recalc();
+}
+
+// ── ZONE CHANGE ──
+function onZoneChange(){
+  const val = document.getElementById('zone_select').value;
+  const wrap = document.getElementById('zone_other_wrap');
+  wrap.style.display = val==='OTHER' ? '' : 'none';
+}
+function getZoneDisplay(){
+  const sel = document.getElementById('zone_select').value;
+  if(!sel) return '—';
+  if(sel==='OTHER'){
+    const oth = (document.getElementById('zone_other')?.value||'').trim();
+    return oth ? 'อื่นๆ: '+oth : 'อื่นๆ (ไม่ระบุ)';
+  }
+  return sel;
+}
+
+// ── FSC METHOD SELECTOR ──
+function selFscMethod(val, el){
+  document.querySelectorAll('#rs_fsc_method .ri').forEach(r=>r.classList.remove('on'));
+  if(el) el.classList.add('on');
+  const inp=document.querySelector(`input[name="fsc_method"][value="${val}"]`);
+  if(inp) inp.checked=true;
+  recalc();
+}
+
+// ═══════════════════════════════════════
+// MAIN RECALC
+// ═══════════════════════════════════════
+function recalc(){
+  const diesel=v('r_diesel'), rE=v('s_empty'), rL=v('s_loaded');
+  const rG=v('s_gen'), rMR=v('s_mr'), rT=v('s_tire');
+  const imp=document.querySelector('input[name="impexp"]:checked')?.value||'export';
+  const ctype=document.querySelector('input[name="ctype"]:checked')?.value||'dry';
+  const mode=document.querySelector('input[name="mode"]:checked')?.value||'wait';
+  const isR=ctype==='reefer';
+
+  let km_e=0, km_l=0;
+  if(imp==='export'){
+    if(mode==='wait'){ km_e+=v('km_jts_yard')+v('km_yard_factory'); km_l+=v('km_factory_port'); }
+    else { km_e+=v('km_jts_yard')+v('km_yard_factory')+v('km_factory_jts')+v('km_jts_factory2'); km_l+=v('km_factory_port'); }
+  } else {
+    km_l+=v('km_jts_port'); km_l+=v('km_port_factory'); km_e+=v('km_factory_port');
+  }
+  const km_total=km_e+km_l;
+
+  const lit_e=rE>0?km_e/rE:0, lit_l=rL>0?km_l/rL:0;
+  const fuel=(lit_e+lit_l)*diesel;
+  const hasPre=chk('chk_precool');
+  const gen_hr=isR?((hasPre?v('gen_pre'):0)+v('gen_after')):0;
+  const gen_c=gen_hr*rG*diesel;
+  const lit_gen=gen_hr*rG;
+  const lit_total=(lit_e+lit_l)+lit_gen;
+  window._litE=lit_e; window._litL=lit_l; window._litGen=lit_gen; window._litTotal=lit_total;
+  const toll=v('toll1')+v('toll2')+v('toll3')+v('toll4');
+  let extra=0;
+  document.querySelectorAll('.ex-amt').forEach(el=>{ extra+=(parseFloat(el.value)||0); });
+  const mr=km_total*rMR, tire=km_total*rT;
+
+  // FSC
+  const fsc=calcFSC(diesel, km_total);
+  lastFSC=fsc.fscAmount;
+  lastKmTotal=km_total;
+
+  // Selling price & driver
+  const spPrice=parseFloat(document.getElementById('sp_price').value)||0;
+  const driverPct=(v('s_driver_pct')||7)/100;
+  const driver=spPrice>0?spPrice*driverPct:0;
+
+  const dc=fuel+gen_c+toll+driver+mr+tire+fsc.fscAmount+extra;
+  lastDC=dc; lastSP=spPrice;
+
+  // Margin alert
+  const minWarn=v('s_min_margin_warn')||10;
+  const minStop=v('s_min_margin_stop')||5;
+  const alertEl=document.getElementById('margin-alert');
+  let marginPct=0;
+  if(spPrice>0&&dc>0){
+    marginPct=((spPrice-dc)/spPrice)*100;
+    if(marginPct<minStop){
+      alertEl.style.display='block'; alertEl.className='margin-alert danger';
+      alertEl.textContent=`🔴 Margin ${marginPct.toFixed(1)}% — ต่ำกว่าขั้นต่ำ ${minStop}% ต้องขออนุมัติจาก Manager`;
+    } else if(marginPct<minWarn){
+      alertEl.style.display='block'; alertEl.className='margin-alert warn';
+      alertEl.textContent=`⚠️ Margin ${marginPct.toFixed(1)}% — ต่ำกว่าเป้า ${minWarn}% กรุณาตรวจสอบ`;
+    } else {
+      alertEl.style.display='block'; alertEl.className='margin-alert ok';
+      alertEl.textContent=`✅ Margin ${marginPct.toFixed(1)}% — อยู่ในเกณฑ์ดี`;
+    }
+  } else { alertEl.style.display='none'; }
+
+  // Scenario: compute dc without driver (driver changes with SP)
+  // Scenario ±2 baht (v7.2 style chips)
+  const fscUp2=calcFSC(diesel+2,km_total), fscDn2=calcFSC(Math.max(0,diesel-2),km_total);
+  const dcUp2base=calcScenario(diesel+2,km_e,km_l,rE,rL,gen_hr,rG,toll,mr,tire,fscUp2.fscRate,extra);
+  const dcDn2base=calcScenario(Math.max(0,diesel-2),km_e,km_l,rE,rL,gen_hr,rG,toll,mr,tire,fscDn2.fscRate,extra);
+  // Include driver (7% of SP) in scenario — driver doesn't change with diesel, stays same %
+  const dcUp2=dcUp2base+driver;
+  const dcDn2=dcDn2base+driver;
+
+  // ── UPDATE UI ──
+  document.getElementById('d_jobid').textContent=str('jobid')||'กรุณากรอก Job ID';
+  document.getElementById('d_cust_name').textContent=str('cust_name')||'—';
+  document.getElementById('r_quote_no').textContent=str('jobid')?`#${str('jobid')}`:'';
+  document.getElementById('d_km_e').textContent=fmt(km_e)+' กม.';
+  document.getElementById('d_km_l').textContent=fmt(km_l)+' กม.';
+  document.getElementById('d_km_t').textContent=fmt(km_total)+' กม.';
+  document.getElementById('km_badge').textContent=fmt(km_total)+' กม.';
+  document.getElementById('d_fuel').textContent='฿'+fmt(fuel);
+  document.getElementById('d_gen').textContent='฿'+fmt(gen_c);
+  document.getElementById('line_gen').style.opacity=isR?'1':'0.35';
+  document.getElementById('d_toll').textContent='฿'+fmt(toll);
+  document.getElementById('toll_badge').textContent='฿'+fmt(toll);
+  document.getElementById('d_drv').textContent='฿'+fmt(driver);
+  document.getElementById('d_mr').textContent='฿'+fmt(mr);
+  document.getElementById('d_tire').textContent='฿'+fmt(tire);
+  document.getElementById('d_extra').textContent='฿'+fmt(extra);
+  document.getElementById('d_dc').textContent=fmt(dc);
+
+  // FSC UI — all null-safe (fsc-pill removed from HTML, use safe access)
+  const _fscPill=document.getElementById('fsc-pill');
+  if(_fscPill){ _fscPill.className='fsc-pill '+fsc.pillClass; _fscPill.textContent=fsc.pillText; }
+  const _fscSd=document.getElementById('fsc-surcharge-disp');
+  if(_fscSd) _fscSd.textContent=fsc.fscAmount>0?`+฿${fmt(fsc.fscAmount)}`:'';
+  const lineFsc=document.getElementById('line_fsc');
+  if(lineFsc) lineFsc.classList.toggle('hide',fsc.fscAmount===0);
+  const _dfsc=document.getElementById('d_fsc'); if(_dfsc) _dfsc.textContent='฿'+fmt(fsc.fscAmount);
+  // FSC comparison panel — safe
+  const cmpPanel=document.getElementById('fsc_comparison');
+  if(cmpPanel){ cmpPanel.style.display=km_total>0?'block':'none'; }
+  const _cb=document.getElementById('fsc_cmp_band'); if(_cb) _cb.textContent='฿'+fmt(fsc.fscAmtBand||0);
+  const _cp=document.getElementById('fsc_cmp_pct');  if(_cp) _cp.textContent='฿'+fmt(fsc.fscAmtPct||0);
+  const _cu=document.getElementById('fsc_cmp_used'); if(_cu) _cu.textContent='฿'+fmt(fsc.fscAmount||0);
+  // PCT preview — safe
+  const pctPrev=document.getElementById('fsc_pct_preview');
+  if(pctPrev){
+    const basePr=v('fsc_base_price'), pctR=v('fsc_pct_rate');
+    if(diesel>basePr&&basePr>0){
+      pctPrev.innerHTML=`น้ำมันปัจจุบัน <strong>฿${diesel}</strong> เกิน Base <strong>฿${basePr}</strong> = <strong>+฿${(diesel-basePr).toFixed(2)}/ลิตร</strong><br>FSC: ${(diesel-basePr).toFixed(2)} × ${pctR}% = <strong>฿${fmt(fsc.fscAmtPct)}</strong>`;
+    } else if(basePr>0){
+      pctPrev.innerHTML=`น้ำมันปัจจุบัน <strong>฿${diesel}</strong> ≤ Base <strong>฿${basePr}</strong> → <span style="color:var(--green2);font-weight:700">ไม่มี FSC เพิ่ม ✓</span>`;
+    }
+  }
+
+  // SP
+  if(spPrice>0){
+    document.getElementById('d_sp').textContent=fmt(spPrice);
+    document.getElementById('d_margin_disp').textContent=`ต้นทุน ฿${fmt(dc)} | Margin ${marginPct.toFixed(1)}%`;
+    document.getElementById('d_margin_pct').textContent=`Margin: ${marginPct.toFixed(1)}%`;
+  } else {
+    document.getElementById('d_sp').textContent='—';
+    document.getElementById('d_margin_disp').textContent='กรอกราคาขายเพื่อคำนวณ Margin%';
+    document.getElementById('d_margin_pct').textContent='';
+  }
+
+  // Scenario ±2 chips
+  const scDieselEl=document.getElementById('sc_diesel_now'); if(scDieselEl) scDieselEl.textContent=diesel.toFixed(2);
+  document.getElementById('sc_now').textContent='฿'+fmt(dc);
+  document.getElementById('sc_up2').textContent='฿'+fmt(dcUp2);
+  document.getElementById('sc_dn2').textContent='฿'+fmt(dcDn2);
+  // Liters
+  const _eEl=document.getElementById('d_lit_e'); if(_eEl) _eEl.textContent=lit_e.toFixed(2)+' ลิตร';
+  const _lEl=document.getElementById('d_lit_l'); if(_lEl) _lEl.textContent=lit_l.toFixed(2)+' ลิตร';
+  const _gEl=document.getElementById('d_lit_gen'); if(_gEl) _gEl.textContent=isR?lit_gen.toFixed(2)+' ลิตร':'— ลิตร';
+  const _tEl=document.getElementById('d_lit_total'); if(_tEl) _tEl.textContent=lit_total.toFixed(2)+' ลิตร';
+  const _dlEl=document.getElementById('diesel-lit-summary'); if(_dlEl) _dlEl.textContent=lit_total.toFixed(1)+' ลิตร';
+  // keep d_gen for cost display
+
+  document.getElementById('d_lit_gen').textContent=isR?lit_gen.toFixed(1)+' ลิตร':'—';
+  document.getElementById('d_lit_total').textContent=lit_total.toFixed(1)+' ลิตร';
+  document.getElementById('line_gen_lit').style.opacity=isR?'0.7':'0.3';
+}
+
+function calcScenario(diesel2,km_e,km_l,rE,rL,gen_hr,rG,toll,mr,tire,fscRate,extra){
+  const d=Math.max(0,diesel2);
+  const f=(rE>0?km_e/rE:0)+(rL>0?km_l/rL:0);
+  const fuel=f*d, gen=gen_hr*rG*d, fsc=fscRate*(km_e+km_l);
+  return fuel+gen+toll+mr+tire+fsc+extra;
+}
+
+// ── EXTRA COST ROWS ──
+let extraCnt=0;
+function addExtra(){
+  extraCnt++;
+  const id='ex_'+extraCnt;
+  const div=document.createElement('div');
+  div.id=id;
+  div.style.cssText='display:grid;grid-template-columns:1fr auto auto;gap:7px;margin-bottom:7px;align-items:center';
+  div.innerHTML=`<input type="text" placeholder="รายการ (เช่น ค่า Lift-on/off, ค่า THC)" style="font-size:13px">
+    <input type="number" class="ex-amt" placeholder="฿" min="0" style="width:88px;text-align:center;font-size:13px" oninput="recalc()">
+    <button onclick="document.getElementById('${id}').remove();recalc()" style="background:var(--redb);border:1px solid var(--red2);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px;color:var(--red2)">✕</button>`;
+  document.getElementById('extra_rows').appendChild(div);
+}
+
+// ── SAVE QUOTE ──
+function saveQuote(){
+  const jid=str('jobid');
+  if(!jid){ showToast('กรุณากรอก Job ID ก่อนบันทึก','err'); return; }
+  const imp=document.querySelector('input[name="impexp"]:checked')?.value||'export';
+  const ctype=document.querySelector('input[name="ctype"]:checked')?.value||'dry';
+  const diesel=v('r_diesel');
+  const fsc=calcFSC(diesel,lastKmTotal);
+  const marginPct=lastSP>0&&lastDC>0?((lastSP-lastDC)/lastSP*100):0;
+  const rec={
+    id:jid, date:str('job_date'), cust:str('cust_name'),
+    cust_addr:str('cust_addr'), inv_name:str('inv_name'), inv_addr:str('inv_addr'),
+    proposer:str('proposer'),
+    cargo_type:str('cargo_type'), cargo_wt:str('cargo_wt'), cargo_place:str('cargo_place'),
+    zone:getZoneDisplay(), zone_sel:document.getElementById('zone_select')?.value||'',
+    zone_other:str('zone_other'),
+    impexp:imp, ctype:ctype, mode:(document.querySelector('input[name="mode"]:checked')?.value||'wait'),
+    chassis:(document.querySelector('input[name="chassis"]:checked')?.value||'2axle'),
+    container_sizes:Array.from(document.querySelectorAll('#cbset_size input:checked')).map(c=>c.value).join(','),
+    diesel:v('r_diesel'),
+    type:imp+' · '+ctype.toUpperCase(),
+    dc:lastDC, sp:lastSP, margin:marginPct,
+    band:fsc.band, fscDiesel:v('r_diesel'),
+    exp:str('job_exp'), ts:Date.now(),
+    kmTotal:lastKmTotal,
+    litE:(window._litE||0), litL:(window._litL||0), litGen:(window._litGen||0), litTotal:(window._litTotal||0),
+    remarks:str('remarks'),
+    // km inputs snapshot
+    km_jts_yard:v('km_jts_yard'), km_yard_factory:v('km_yard_factory'),
+    km_factory_port:v('km_factory_port'), km_factory_jts:v('km_factory_jts'),
+    km_jts_factory2:v('km_jts_factory2'), km_jts_port:v('km_jts_port'),
+    km_port_factory:v('km_port_factory'),
+    toll1:v('toll1'), toll2:v('toll2'), toll3:v('toll3'), toll4:v('toll4'),
+    gen_pre:v('gen_pre'), gen_after:v('gen_after'),
+    chk_precool:chk('chk_precool')
+  };
+  quoteHistory.unshift(rec);
+  localStorage.setItem('jwd_history',JSON.stringify(quoteHistory));
+  document.getElementById('hist-count').textContent=quoteHistory.length;
+  renderHistory();
+  showToast(`💾 บันทึกแล้ว: ${jid}`,'ok');
+}
+
+// ── HISTORY ──
+function renderHistory(){
+  const tbody=document.getElementById('hist-body');
+  document.getElementById('hist-total').textContent=quoteHistory.length+' รายการ';
+  document.getElementById('hist-count').textContent=quoteHistory.length;
+  if(quoteHistory.length===0){
+    tbody.innerHTML='<tr><td colspan="14" class="hist-empty">ยังไม่มีประวัติใบเสนอราคา</td></tr>';
+    return;
+  }
+  const today=new Date(); today.setHours(0,0,0,0);
+  tbody.innerHTML=quoteHistory.map((r,idx)=>{
+    const mgCls=r.margin>=10?'mg-ok':r.margin>=5?'mg-warn':'mg-bad';
+    // band column removed
+    let expCell='—'; let expired=false;
+    if(r.exp){
+      const expDate=new Date(r.exp); expDate.setHours(0,0,0,0);
+      expired=expDate<today;
+      expCell=expired
+        ?`<span style="background:var(--redb);color:var(--red2);padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700">⚠️ Expired</span><br><span style="font-size:10px;color:var(--muted)">${r.exp}</span>`
+        :`<span style="color:var(--green2)">${r.exp}</span>`;
+    }
+    return `<tr style="${expired?'opacity:.7':''}">
+      <td><strong>${r.id}</strong></td>
+      <td style="font-size:11px">${r.date||'—'}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.cust||'—'}</td>
+      <td style="font-size:11px">${r.proposer||'—'}</td>
+      <td style="font-size:11px">${r.zone||'—'}</td>
+      <td style="font-size:11px">${r.type}</td>
+      <td class="num" style="font-size:11px">${r.kmTotal?r.kmTotal.toFixed(0)+' กม.':'—'}</td>
+      <td class="num" style="font-size:11px">${r.litTotal?r.litTotal.toFixed(1)+' ลิตร':'—'}</td>
+      <td class="num">฿${fmt(r.dc)}</td>
+      <td class="num">${r.sp>0?'฿'+fmt(r.sp):'—'}</td>
+      <td class="${mgCls}">${r.sp>0?r.margin.toFixed(1)+'%':'—'}</td>
+      <td class="num" style="font-size:11px">${r.fscDiesel?'฿'+r.fscDiesel.toFixed(2):'—'}</td>
+      <td>${expCell}</td>
+      <td style="white-space:nowrap"><button onclick="loadQuote(${idx})" style="background:var(--tealb);border:1px solid var(--teal);border-radius:5px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--teal);font-weight:700;margin-right:3px" title="โหลดเพื่อแก้ไข">📋</button><button onclick="deleteQuote(${idx})" style="background:var(--redb);border:1px solid var(--red2);border-radius:5px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--red2);font-weight:700">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+function deleteQuote(idx){
+  if(!confirm('ลบรายการนี้?')) return;
+  quoteHistory.splice(idx,1);
+  localStorage.setItem('jwd_history',JSON.stringify(quoteHistory));
+  renderHistory();
+  showToast('🗑️ ลบรายการแล้ว','warn');
+}
+function loadQuote(idx){
+  const r=quoteHistory[idx];
+  if(!r) return;
+  if(!confirm('โหลดข้อมูล '+r.id+' ขึ้นมาแก้ไข? ข้อมูลที่กรอกอยู่จะถูกแทนที่')) return;
+  const sv=(id,val)=>{const e=document.getElementById(id);if(e)e.value=(val!==undefined&&val!==null)?val:'';};
+  // Basic info
+  sv('jobid',r.id); sv('job_date',r.date); sv('job_exp',r.exp); sv('proposer',r.proposer);
+  // Customer
+  sv('cust_name',r.cust); sv('cust_addr',r.cust_addr); sv('inv_name',r.inv_name); sv('inv_addr',r.inv_addr);
+  // Cargo
+  sv('cargo_type',r.cargo_type); sv('cargo_wt',r.cargo_wt); sv('cargo_place',r.cargo_place);
+  // Pricing
+  sv('sp_price',r.sp>0?r.sp:''); sv('remarks',r.remarks);
+  // Zone
+  const zs=document.getElementById('zone_select');
+  if(zs){
+    if(r.zone_sel){ zs.value=r.zone_sel; }
+    else {
+      const zv=r.zone||'';
+      const opt=Array.from(zs.options).find(o=>o.value===zv);
+      if(opt) zs.value=opt.value;
+      else if(zv.startsWith('อื่นๆ:')) zs.value='OTHER';
+    }
+    sv('zone_other',r.zone_other||'');
+    onZoneChange();
+  }
+  // Job type radios
+  if(r.impexp){
+    const ie=document.querySelector(`input[name="impexp"][value="${r.impexp}"]`);
+    if(ie){ ie.checked=true; document.querySelectorAll('#rs_impexp .ri').forEach(x=>x.classList.remove('on')); ie.closest('.ri').classList.add('on'); }
+  }
+  if(r.ctype){
+    const ct=document.querySelector(`input[name="ctype"][value="${r.ctype}"]`);
+    if(ct){ ct.checked=true; document.querySelectorAll('#rs_ctype .ri').forEach(x=>x.classList.remove('on')); ct.closest('.ri').classList.add('on'); }
+  }
+  if(r.mode){
+    const md=document.querySelector(`input[name="mode"][value="${r.mode}"]`);
+    if(md){ md.checked=true; document.querySelectorAll('#rs_mode .ri').forEach(x=>x.classList.remove('on')); md.closest('.ri').classList.add('on'); }
+  }
+  if(r.chassis){
+    const ch=document.querySelector(`input[name="chassis"][value="${r.chassis}"]`);
+    if(ch){ ch.checked=true; document.querySelectorAll('#rs_chassis .ri').forEach(x=>x.classList.remove('on')); ch.closest('.ri').classList.add('on'); }
+  }
+  // Container sizes
+  if(r.container_sizes){
+    const szArr=r.container_sizes.split(',');
+    document.querySelectorAll('#cbset_size input').forEach(c=>{ c.checked=szArr.includes(c.value); c.closest('.cbi').classList.toggle('on',c.checked); });
+  }
+  // Switch to calc tab immediately, then restore km fields after onFormChange renders them
+  switchTab('calc');
+  onFormChange();
+  setTimeout(()=>{
+    // Restore km inputs after renderKm() has rendered the fields
+    const kmFields=['km_jts_yard','km_yard_factory','km_factory_port','km_factory_jts','km_jts_factory2','km_jts_port','km_port_factory'];
+    kmFields.forEach(k=>{ if(r[k]!==undefined&&r[k]!==null) sv(k,r[k]); });
+    sv('toll1',r.toll1||0); sv('toll2',r.toll2||0); sv('toll3',r.toll3||0); sv('toll4',r.toll4||0);
+    sv('gen_pre',r.gen_pre||0); sv('gen_after',r.gen_after||0);
+    if(r.chk_precool){ const cp=document.getElementById('chk_precool'); if(cp&&!cp.checked){ cp.checked=true; onPrecool(); } }
+    sv('r_diesel',r.diesel||r.fscDiesel||'');
+    recalc();
+    showToast('📋 โหลดข้อมูล '+r.id+' ครบทุกฟิลด์แล้ว','ok');
+  }, 150);
+}
+function clearHistory(){
+  if(!confirm('ลบประวัติทั้งหมด?')) return;
+  quoteHistory=[];
+  localStorage.removeItem('jwd_history');
+  renderHistory();
+  showToast('🗑️ ลบประวัติแล้ว','warn');
+}
+function exportHistCSV(){
+  if(!quoteHistory.length){ showToast('ไม่มีข้อมูลที่จะ Export','err'); return; }
+  const hdr='Job ID,วันที่,ลูกค้า,ผู้เสนอราคา,Zone,ประเภท,ระยะทางรวม(กม.),น้ำมันรวม(ลิตร),Direct Cost,ราคาขาย,Margin%,ราคาน้ำมัน,หมายเหตุ,วันหมดอายุ\n';
+  const rows=quoteHistory.map(r=>`"${r.id}","${r.date||''}","${r.cust||''}","${r.proposer||''}","${r.zone||''}","${r.type}",${(r.kmTotal||0).toFixed(0)},${(r.litTotal||0).toFixed(1)},${r.dc.toFixed(2)},${r.sp.toFixed(2)},${r.margin.toFixed(2)},${(r.fscDiesel||0).toFixed(2)},"${r.remarks||''}","${r.exp||''}"`).join('\n');
+  const blob=new Blob(['\ufeff'+hdr+rows],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`JWD_Quotes_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('📊 Export CSV สำเร็จ','ok');
+}
+
+// ── RESET ──
+function resetForm(){
+  if(!confirm('ล้างข้อมูลทั้งหมด?')) return;
+  ['jobid','job_date','job_exp','cust_name','cust_addr','inv_name','inv_addr',
+   'cargo_type','cargo_wt','cargo_place','proposer','sp_price','remarks',
+   'toll1','toll2','toll3','toll4','gen_pre','gen_after'].forEach(id=>{
+    const e=document.getElementById(id); if(e) e.value=['cargo_wt','toll1','toll2','toll3','toll4','gen_pre','gen_after'].includes(id)?'0':'';
+  });
+  selR('impexp','export',document.querySelector('#rs_impexp .ri'));
+  selR('ctype','dry',document.querySelector('#rs_ctype .ri'));
+  selR('mode','wait',document.querySelector('#rs_mode .ri'));
+  selR('chassis','2axle',document.querySelector('#rs_chassis .ri'));
+  document.getElementById('chk_precool').checked=false; onPrecool();
+  document.querySelectorAll('#cbset_size input').forEach(c=>{c.checked=c.value==='40';styleCheck(c);});
+  document.getElementById('extra_rows').innerHTML='';
+  document.getElementById('margin-alert').style.display='none';
+  const zs=document.getElementById('zone_select'); if(zs){zs.value='';}
+  const zo=document.getElementById('zone_other'); if(zo){zo.value='';}
+  const zw=document.getElementById('zone_other_wrap'); if(zw){zw.style.display='none';}
+  onFormChange();
+}
+
+// ── TOAST ──
+function showToast(msg, type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type+' show';
+  setTimeout(()=>t.className='toast '+type,2800);
+}
+
+// ── PDF EXPORT ──
+function exportPDF(){
+  const jid=str('jobid')||'JWD';
+  const date=str('job_date')||new Date().toISOString().split('T')[0];
+  const diesel=v('r_diesel');
+  const fsc=calcFSC(diesel,lastKmTotal);
+  const marginPct=lastSP>0&&lastDC>0?((lastSP-lastDC)/lastSP*100):0;
+  const driverPct=v('s_driver_pct')||7;
+  const driver=lastSP>0?lastSP*(driverPct/100):0; // needed for scenario calc
+  const imp=document.querySelector('input[name="impexp"]:checked')?.value||'export';
+  const ctype=document.querySelector('input[name="ctype"]:checked')?.value||'dry';
+  const sizes=Array.from(document.querySelectorAll('#cbset_size input:checked')).map(c=>c.value).join(', ')||'—';
+  const chassis=document.querySelector('input[name="chassis"]:checked')?.value||'—';
+
+  const win=window.open('','_blank','width=960,height=700');
+  if(!win) return;
+  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
+  <title>ใบเสนอราคา ${jid}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    @page{size:A4;margin:18mm 16mm}
+    @media print{body{margin:0}.no-print{display:none!important}}
+    body{font-family:'Sarabun',sans-serif;color:#1a2340;font-size:12px;background:#fff;max-width:750px;margin:0 auto;padding:20px}
+    .hdr{background:#0c1f40;color:#fff;padding:20px 24px;border-radius:8px;margin-bottom:16px;display:grid;grid-template-columns:1fr auto}
+    .hdr h1{font-size:17px;font-weight:700;color:#e9bb50;margin-bottom:3px}
+    .hdr .sub{font-size:10px;color:rgba(255,255,255,.55)}
+    .hdr .badge{background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);padding:4px 10px;border-radius:12px;font-size:10px;font-family:IBM Plex Mono,monospace;align-self:flex-start}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+    .info-box{background:#f8fafd;border:1px solid #d1d9ec;border-radius:7px;padding:11px 14px}
+    .info-box h3{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+    .info-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+    .info-row .lbl{font-size:11px;color:#64748b}
+    .info-row .val{font-size:12px;font-weight:600;color:#1a2340}
+    table{width:100%;border-collapse:collapse;margin-bottom:14px}
+    th{background:#f0f4fa;font-size:10px;font-weight:700;color:#64748b;padding:7px 10px;text-align:left;border-bottom:1px solid #d1d9ec}
+    td{padding:7px 10px;border-bottom:1px solid #f0f2f8;font-size:12px}
+    td.num{font-family:'IBM Plex Mono',monospace;font-weight:600;text-align:right}
+    td.hl{font-family:'IBM Plex Mono',monospace;font-weight:700;text-align:right;color:#0b6e72}
+    .dc-block{background:linear-gradient(135deg,rgba(200,150,46,.2),rgba(233,187,80,.08));border:1.5px solid rgba(200,150,46,.4);border-radius:8px;padding:14px;text-align:center;margin-bottom:12px}
+    .dc-lbl{font-size:10px;font-weight:700;color:#c8962e;text-transform:uppercase;letter-spacing:.5px}
+    .dc-val{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:700;color:#c8962e}
+    .sp-block{background:linear-gradient(135deg,#0b6e72,#12a0a5);border-radius:8px;padding:16px;text-align:center;margin-bottom:12px}
+    .sp-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+    .sp-val{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:#fff}
+    .sp-mg{font-size:13px;color:rgba(255,255,255,.7);margin-top:3px;font-family:'IBM Plex Mono',monospace}
+    .fsc-badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px}
+    .fsc-green{background:rgba(39,174,96,.15);color:#27ae60;border:1px solid #27ae60}
+    .fsc-yellow{background:rgba(230,126,34,.15);color:#e67e22;border:1px solid #e67e22}
+    .fsc-red{background:rgba(231,76,60,.15);color:#e74c3c;border:1px solid #e74c3c}
+    .conditions{background:#f8fafd;border:1px solid #d1d9ec;border-radius:7px;padding:12px 14px;font-size:10px;color:#64748b;line-height:1.8}
+    .conditions strong{color:#1a2340}
+    .footer{text-align:center;font-size:10px;color:#94a3b8;padding:14px;border-top:1px solid #eee;margin-top:16px}
+    .print-btn{position:fixed;top:16px;right:16px;background:#0c1f40;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+    .sc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+    .sc-box{border:1px solid #d1d9ec;border-radius:7px;padding:9px;text-align:center}
+    .sc-box .sl{font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:3px}
+    .sc-box .sv{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700}
+  </style></head><body>
+  <button class="print-btn no-print" onclick="window.print()">🖨️ พิมพ์ / Save PDF</button>
+
+  <div class="hdr">
+    <div>
+      <h1>JWD Transport Co., Ltd.</h1>
+      <div class="sub">ใบเสนอราคาขนส่งตู้คอนเทนเนอร์ · Container Transport Quotation</div>
+    </div>
+    <div class="badge">#${jid}</div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <h3>ข้อมูลลูกค้า</h3>
+      <div class="info-row"><span class="lbl">ลูกค้า</span><span class="val">${str('cust_name')||'—'}</span></div>
+      <div class="info-row"><span class="lbl">ที่อยู่</span><span class="val">${str('cust_addr')||'—'}</span></div>
+      <div class="info-row"><span class="lbl">Invoice ถึง</span><span class="val">${str('inv_name')||str('cust_name')||'—'}</span></div>
+      <div class="info-row"><span class="lbl">ที่อยู่ Invoice</span><span class="val" style="font-size:11px;color:#64748b">${str('inv_addr')||'—'}</span></div>
+    </div>
+    <div class="info-box">
+      <h3>ข้อมูลงาน</h3>
+      <div class="info-row"><span class="lbl">Job ID</span><span class="val">${jid}</span></div>
+      <div class="info-row"><span class="lbl">วันที่คิดราคา</span><span class="val">${date}</span></div>
+      <div class="info-row"><span class="lbl">ราคาหมดอายุ</span><span class="val" style="color:#c8962e">${str('job_exp')||'—'}</span></div>
+      <div class="info-row"><span class="lbl">ประเภทงาน</span><span class="val">${imp==='export'?'Export':'Import'} · ${ctype.toUpperCase()}</span></div>
+      <div class="info-row"><span class="lbl">ขนาดตู้</span><span class="val">${sizes}</span></div>
+      <div class="info-row"><span class="lbl">ประเภทหาง</span><span class="val">${chassis}</span></div>
+      <div class="info-row"><span class="lbl">สินค้า</span><span class="val">${str('cargo_type')||'—'} ${str('cargo_wt')!=='0'?str('cargo_wt')+' ตัน':''}</span></div>
+      <div class="info-row"><span class="lbl">สถานที่บรรจุ</span><span class="val">${str('cargo_place')||'—'}</span></div>
+      <div class="info-row"><span class="lbl">Zone พื้นที่</span><span class="val">${getZoneDisplay()}</span></div>
+      <div class="info-row"><span class="lbl">ผู้เสนอราคา</span><span class="val">${str('proposer')||'—'}</span></div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>รายการต้นทุน</th><th style="text-align:right">มูลค่า (฿)</th><th style="text-align:right">หมายเหตุ</th></tr>
+    <tr><td>ต้นทุนน้ำมันรถหัวลาก</td><td class="num">${document.getElementById('d_fuel').textContent}</td><td style="font-size:10px;color:#94a3b8">น้ำมัน B7 @ ฿${diesel}/ลิตร</td></tr>
+    <tr><td>ต้นทุนน้ำมัน Generator</td><td class="num">${document.getElementById('d_gen').textContent}</td><td style="font-size:10px;color:#94a3b8">${ctype==='reefer'?'Reefer only':'-'}</td></tr>
+    ${fsc.fscAmount>0?`<tr><td>Fuel Surcharge (FSC)<span class="fsc-badge fsc-${fsc.pillClass==='green'?'green':fsc.pillClass==='yellow'?'yellow':'red'}">${fsc.band}</span></td><td class="num">฿${fmt(fsc.fscAmount)}</td><td style="font-size:10px;color:#94a3b8">${fsc.fscRate}฿/กม. × ${fmt(lastKmTotal)} กม.</td></tr>`:''}
+    <tr><td>ค่าทางด่วน / ค่าผ่านทาง</td><td class="num">${document.getElementById('d_toll').textContent}</td><td></td></tr>
+    <tr><td>ค่าแรงพนักงานขับรถ (${driverPct}% ของราคาขาย)</td><td class="num">${document.getElementById('d_drv').textContent}</td><td style="font-size:10px;color:#94a3b8">คิดจากราคาขาย</td></tr>
+    <tr><td>Maintenance &amp; Repair (M&amp;R)</td><td class="num">${document.getElementById('d_mr').textContent}</td><td></td></tr>
+    <tr><td>ต้นทุนยางล้อ</td><td class="num">${document.getElementById('d_tire').textContent}</td><td></td></tr>
+    ${(()=>{
+      let extraRows='';
+      const extraDivs=document.querySelectorAll('#extra_rows > div');
+      if(extraDivs.length>0){
+        extraDivs.forEach(div=>{
+          const lbl=div.querySelector('input[type=text]')?.value||'ค่าใช้จ่ายพิเศษ';
+          const amt=parseFloat(div.querySelector('.ex-amt')?.value||0);
+          if(amt>0) extraRows+=`<tr><td style="padding-left:20px">↳ ${lbl}</td><td class="num">฿${fmt(amt)}</td><td></td></tr>`;
+        });
+        if(extraRows) extraRows=`<tr><td><strong>ค่าใช้จ่ายอื่นๆ</strong></td><td class="num">${document.getElementById('d_extra').textContent}</td><td></td></tr>`+extraRows;
+        else extraRows=`<tr><td>ค่าใช้จ่ายอื่นๆ</td><td class="num">${document.getElementById('d_extra').textContent}</td><td></td></tr>`;
+      } else {
+        extraRows=`<tr><td>ค่าใช้จ่ายอื่นๆ</td><td class="num">${document.getElementById('d_extra').textContent}</td><td></td></tr>`;
+      }
+      return extraRows;
+    })()}
+    <tr style="background:#f8fafd"><td><strong>ระยะทางรวม</strong></td><td class="hl">${document.getElementById('d_km_t').textContent}</td><td style="font-size:10px;color:#94a3b8">ตู้เปล่า ${document.getElementById('d_km_e').textContent} / ตู้หนัก ${document.getElementById('d_km_l').textContent}</td></tr>
+    <tr style="background:#f8fafd"><td>⛽ น้ำมันรวมทั้งหมด (ลิตร)</td><td class="hl">${document.getElementById('d_lit_total').textContent}</td><td style="font-size:10px;color:#94a3b8">รถ ${(window._litE||0).toFixed(1)}+${(window._litL||0).toFixed(1)} ลิตร | Gen ${(window._litGen||0).toFixed(1)} ลิตร</td></tr>
+  </table>
+
+  <div class="dc-block">
+    <div class="dc-lbl">⚡ Direct Cost รวมทั้งหมด</div>
+    <div class="dc-val">฿${fmt(lastDC)}</div>
+    <div style="font-size:11px;color:rgba(200,150,46,.7);margin-top:3px">บาท / เที่ยว</div>
+  </div>
+
+  ${lastSP>0?`<div class="sp-block">
+    <div class="sp-lbl">💰 ราคาขายแนะนำ</div>
+    <div class="sp-val">฿${fmt(lastSP)}</div>
+    <div class="sp-mg">Margin: ${marginPct.toFixed(1)}% | ต้นทุน ฿${fmt(lastDC)}</div>
+  </div>`:''}
+
+  <div style="margin-bottom:12px"><strong style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">📊 Scenario น้ำมัน</strong></div>
+  <div class="sc-grid">
+    <div class="sc-box"><div class="sl">น้ำมัน +2฿/ลิตร (฿${(diesel+2).toFixed(2)})</div><div class="sv" style="color:#e74c3c">฿${fmt(calcScenario(diesel+2,0,lastKmTotal,v('s_empty'),v('s_loaded'),0,v('s_gen'),v('toll1')+v('toll2')+v('toll3')+v('toll4'),lastKmTotal*v('s_mr'),lastKmTotal*v('s_tire'),calcFSC(diesel+2,lastKmTotal).fscRate,0)+driver)}</div></div>
+    <div class="sc-box" style="background:#f0f7f7;border-color:#0b6e72"><div class="sl" style="color:#0b6e72">ราคาน้ำมันปัจจุบัน (฿${diesel.toFixed(2)})</div><div class="sv" style="color:#0b6e72">฿${fmt(lastDC)}</div></div>
+    <div class="sc-box"><div class="sl">น้ำมัน -2฿/ลิตร (฿${Math.max(0,diesel-2).toFixed(2)})</div><div class="sv" style="color:#27ae60">฿${fmt(calcScenario(Math.max(0,diesel-2),0,lastKmTotal,v('s_empty'),v('s_loaded'),0,v('s_gen'),v('toll1')+v('toll2')+v('toll3')+v('toll4'),lastKmTotal*v('s_mr'),lastKmTotal*v('s_tire'),calcFSC(Math.max(0,diesel-2),lastKmTotal).fscRate,0)+driver)}</div></div>
+  </div><div class="sv" style="color:#e74c3c">฿${fmt(calcScenario(diesel+5,0,lastKmTotal,v('s_empty'),v('s_loaded'),0,v('s_gen'),v('toll1')+v('toll2')+v('toll3')+v('toll4'),lastKmTotal*v('s_mr'),lastKmTotal*v('s_tire'),fsc.fscRate,0))}</div></div>
+    <div class="sc-box" style="background:#f0f7f7;border-color:#0b6e72"><div class="sl" style="color:#0b6e72">ราคาปัจจุบัน</div><div class="sv" style="color:#0b6e72">฿${fmt(lastDC)}</div></div>
+    <div class="sc-box"><div class="sl">น้ำมัน -3฿/ลิตร</div><div class="sv" style="color:#27ae60">฿${fmt(calcScenario(diesel-3,0,lastKmTotal,v('s_empty'),v('s_loaded'),0,v('s_gen'),v('toll1')+v('toll2')+v('toll3')+v('toll4'),lastKmTotal*v('s_mr'),lastKmTotal*v('s_tire'),Math.max(0,fsc.fscRate-0.3),0))}</div></div>
+  </div>
+
+  ${str('remarks')?`<div style="background:#fffbf0;border:1px solid #e9bb50;border-radius:7px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.7"><strong style="color:#c8962e">📝 หมายเหตุ:</strong><br>${str('remarks')}</div>`:''}  
+  <div class="conditions">
+    <strong>เงื่อนไขและข้อกำหนด:</strong><br>
+    • ราคานี้อ้างอิงราคาน้ำมันดีเซล B7 ที่ <strong>฿${diesel}/ลิตร</strong> ณ วันที่ ${date}<br>
+    • FSC Band ปัจจุบัน: <strong>${fsc.band}</strong> — หากราคาน้ำมันเปลี่ยนแปลงอาจมีการปรับ Fuel Surcharge<br>
+    • ราคานี้มีผลถึง <strong>${str('job_exp')||'—'}</strong> — หลังจากนั้นกรุณาขอราคาใหม่<br>
+    • ราคาไม่รวม: ภาษีมูลค่าเพิ่ม (VAT 7%), ค่าธรรมเนียมท่าเรือ, ค่า CFS, ค่า B/L<br>
+    • บริษัทขอสงวนสิทธิ์ปรับราคาหากมีการเปลี่ยนแปลงระยะทาง หรือเงื่อนไขงานที่แตกต่างจากที่ระบุ
+  </div>
+
+  <div style="font-size:11px;color:#64748b;padding:10px 0;border-top:1px solid #eee;margin-bottom:8px">
+    🕐 วันเวลาที่สรุปใบเสนอราคา: <strong>\${new Date().toLocaleString('th-TH',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'})}</strong>
+  </div>
+  <div class="footer">
+    JWD Transport Co., Ltd. · ระบบคำนวณและเสนอราคาขนส่ง v7.0<br>
+    พิมพ์โดย: ระบบ JWD Pricing System · วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}
+  </div>
+  <script>window.onload=()=>{setTimeout(()=>window.print(),800);}<\/script>
+  </body></html>`);
+  win.document.close();
+  showToast('📄 เปิดใบเสนอราคาแล้ว','ok');
+}
+
+
+// ── PARAMETERS SAVE/LOAD ──
+const PARAM_KEYS = ['s_empty', 's_loaded', 's_gen', 's_mr', 's_tire', 's_min_margin_warn', 's_min_margin_stop', 's_quote_days', 's_driver_pct', 'fsc_band_base', 'fsc_band_m4', 'fsc_band_m2', 'fsc_band_base_rate', 'fsc_band_p2', 'fsc_band_p4', 'fsc_base_price', 'fsc_pct_rate'];
+function saveParams(){
+  const saved = {};
+  PARAM_KEYS.forEach(k=>{ const e=document.getElementById(k); if(e) saved[k]=e.value; });
+  // Also save FSC method
+  const fm=document.querySelector('input[name="fsc_method"]:checked');
+  if(fm) saved['fsc_method']=fm.value;
+  localStorage.setItem('jwd_params', JSON.stringify(saved));
+  const st=document.getElementById('params-save-status');
+  if(st){ st.textContent='✅ บันทึกแล้ว '+new Date().toLocaleTimeString('th-TH'); setTimeout(()=>st.textContent='',3000); }
+  showToast('💾 บันทึก Parameters แล้ว','ok');
+  recalc();
+}
+function loadParams(){
+  const saved = JSON.parse(localStorage.getItem('jwd_params')||'{}');
+  if(!Object.keys(saved).length) return;
+  PARAM_KEYS.forEach(k=>{ const e=document.getElementById(k); if(e&&saved[k]!==undefined) e.value=saved[k]; });
+  if(saved['fsc_method']){
+    const fm=document.querySelector(`input[name="fsc_method"][value="${saved['fsc_method']}"]`);
+    if(fm){ fm.checked=true; document.querySelectorAll('#rs_fsc_method .ri').forEach(r=>r.classList.remove('on')); fm.closest('.ri').classList.add('on'); }
+  }
+}
+const PARAM_DEFAULTS = {s_empty:4,s_loaded:2.5,s_gen:5,s_mr:1.5,s_tire:1.2,s_min_margin_warn:10,s_min_margin_stop:5,s_quote_days:7,s_driver_pct:7,fsc_band_base:29.74,fsc_band_m4:-200,fsc_band_m2:-100,fsc_band_base_rate:0,fsc_band_p2:100,fsc_band_p4:200,fsc_base_price:29.74,fsc_pct_rate:3};
+function resetParams(){
+  if(!confirm('รีเซ็ตค่าทั้งหมดกลับเป็น Default?')) return;
+  Object.entries(PARAM_DEFAULTS).forEach(([k,v])=>{ const e=document.getElementById(k); if(e) e.value=v; });
+  localStorage.removeItem('jwd_params');
+  showToast('↺ Reset Parameters แล้ว','warn');
+  recalc();
+}
+
+// ── INIT ──
+// Start in Sales tab — manager fields locked; bind events
+document.querySelectorAll('.mgr-field').forEach(f=>{ f.disabled=true; f.addEventListener('input',recalc); });
+// FSC method radio style
+document.querySelectorAll('#rs_fsc_method .ri input').forEach(inp=>{
+  inp.addEventListener('change',()=>{
+    document.querySelectorAll('#rs_fsc_method .ri').forEach(r=>r.classList.remove('on'));
+    inp.closest('.ri').classList.add('on');
+    recalc();
+  });
+});
+// Bind other inputs
+['r_diesel','toll1','toll2','toll3','toll4','gen_pre','gen_after','sp_price'].forEach(id=>{
+  const e=document.getElementById(id); if(e) e.addEventListener('input',recalc);
+});
+document.getElementById('job_date').addEventListener('change',()=>{setExpiry();recalc();});
+document.getElementById('job_exp').addEventListener('change',()=>{
+  const d=document.getElementById('d_exp_date');
+  const v2=document.getElementById('job_exp').value;
+  d.textContent=v2?new Date(v2).toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}):'—';
+});
+document.getElementById('jobid').addEventListener('input',recalc);
+document.getElementById('cust_name').addEventListener('input',recalc);
+
+// Set default date
+const today=new Date().toISOString().split('T')[0];
+document.getElementById('job_date').value=today;
+
+loadParams();
+renderHistory();
+onFormChange();
+</script>
+</body>
+</html>
