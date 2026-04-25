@@ -956,9 +956,10 @@ footer{text-align:center;padding:14px;font-size:10px;color:var(--muted)}
 <script>
 // ═══════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════
+  const API_URL = "https://script.google.com/macros/s/AKfycbxSh--4n7tZdfT_QH6LblT35VJ_6t9pejAKd2h5pVu0-EISphwgzJl0mfbgbdhkmeWCVg/exec"; //
+
 let isManager = false;
-let quoteHistory = JSON.parse(localStorage.getItem('jwd_history')||'[]');
+let quoteHistory = []; //
 let lastDC = 0, lastSP = 0, lastFSC = 0, lastKmTotal = 0;
 
 // ── HELPERS ──
@@ -1331,6 +1332,57 @@ function addExtra(){
     <input type="number" class="ex-amt" placeholder="฿" min="0" style="width:88px;text-align:center;font-size:13px" oninput="recalc()">
     <button onclick="document.getElementById('${id}').remove();recalc()" style="background:var(--redb);border:1px solid var(--red2);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px;color:var(--red2)">✕</button>`;
   document.getElementById('extra_rows').appendChild(div);
+}
+
+async function syncHistoryFromSheet(){
+  try{
+    const res = await fetch(API_URL);
+    const rows = await res.json();
+
+    if(!rows || rows.length < 2){
+      quoteHistory = [];
+      renderHistory();
+      return;
+    }
+
+    const header = rows[0].map(h => String(h||"").trim());
+    const col = (name) => header.indexOf(name);
+    const idxPayload = col("payload");
+
+    const list = [];
+    for(let i=1;i<rows.length;i++){
+      const r = rows[i];
+      if(!r || !r.length) continue;
+
+      // ถ้ามี payload ให้ใช้ payload เพื่อโหลดกลับมาแก้ได้ครบ
+      if(idxPayload >= 0 && r[idxPayload]){
+        try{
+          const obj = JSON.parse(r[idxPayload]);
+          list.push(obj);
+          continue;
+        }catch(e){}
+      }
+
+      // fallback (ดึงจากคอลัมน์หลัก)
+      const jobId = r[col("job_id")] || "";
+      const date  = r[col("quote_date")] || "";
+      const cust  = r[col("customer_name")] || "";
+      const prop  = r[col("updated_by")] || "";
+      const zone  = r[col("zone")] || "";
+      const dc    = parseFloat(r[col("base_price")] || 0);
+      const sp    = parseFloat(r[col("total_price")] || 0);
+      const exp   = r[col("expiry_date")] || "";
+      const margin = (sp>0 && dc>0) ? ((sp-dc)/sp*100) : 0;
+
+      list.push({ id:jobId, date, cust, proposer:prop, zone, dc, sp, margin, exp });
+    }
+
+    quoteHistory = list;
+    renderHistory();
+  }catch(err){
+    console.error(err);
+    showToast("โหลดประวัติจาก Google Sheet ไม่ได้","err");
+  }
 }
 
 // ── SAVE QUOTE ──
@@ -1760,8 +1812,8 @@ const today=new Date().toISOString().split('T')[0];
 document.getElementById('job_date').value=today;
 
 loadParams();
-renderHistory();
 onFormChange();
+syncHistoryFromSheet();
 </script>
 </body>
 </html>
