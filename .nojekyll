@@ -1,1 +1,102 @@
 
+<h2>ใบเสนอราคา</h2>
+
+<input id="job_id" placeholder="Job ID">
+<input id="quote_date" type="date">
+<input id="customer_name" placeholder="ชื่อลูกค้า">
+<input id="route" placeholder="เส้นทาง">
+<input id="base_price" placeholder="ราคา">
+
+<button onclick="saveQuote()">บันทึก</button>
+
+<hr>
+
+<h2>ประวัติใบเสนอราคา</h2>
+<table border="1" width="100%">
+  <thead>
+    <tr>
+      <th>Job ID</th>
+      <th>ลูกค้า</th>
+      <th>เส้นทาง</th>
+      <th>ราคา</th>
+      <th>จัดการ</th>
+    </tr>
+  </thead>
+  <tbody id="history"></tbody>
+</table>
+
+<script>
+const API_URL = "วาง Web app URL ของคุณตรงนี้"; // สำคัญ!
+
+let editId = null;
+
+// บันทึก / อัปเดต
+function saveQuote() {
+  const data = {
+    id: editId,
+    job_id: job_id.value,
+    quote_date: quote_date.value,
+    customer_name: customer_name.value,
+    route: route.value,
+    base_price: base_price.value,
+    updated_by: "web"
+  };
+
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+  .then(res => res.json())
+  .then(() => {
+    clearForm();
+    loadHistory();
+  });
+}
+
+// โหลดประวัติ
+function loadHistory() {
+  fetch(API_URL)
+    .then(res => res.json())
+    .then(rows => {
+      let html = "";
+      rows.slice(1).forEach(r => {
+        html += `
+          <tr>
+            <td>${r[1]}</td>
+            <td>${r[4]}</td>
+            <td>${r[8]}</td>
+            <td>${r[10]}</td>
+            <td>
+              <button onclick="editRow('${r[0]}','${r[1]}','${r[2]}','${r[4]}','${r[8]}','${r[10]}')">
+                แก้ไข
+              </button>
+            </td>
+          </tr>`;
+      });
+      history.innerHTML = html;
+    });
+}
+
+// แก้ไขรายการ
+function editRow(id, job, date, customer, route, price) {
+  editId = id;
+  job_id.value = job;
+  quote_date.value = date;
+  customer_name.value = customer;
+  route.value = route;
+  base_price.value = price;
+}
+
+// ล้างฟอร์ม
+function clearForm() {
+  editId = null;
+  job_id.value = "";
+  quote_date.value = "";
+  customer_name.value = "";
+  route.value = "";
+  base_price.value = "";
+}
+
+loadHistory();
+</script>
+
